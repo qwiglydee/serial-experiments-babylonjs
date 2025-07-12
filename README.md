@@ -6,4 +6,6 @@ The code exploits modern web-components approach with [Lit library](https://lit.
 
 ---- 
 
-All the stuff goes to [branches](https://github.com/qwiglydee/serial-experiments-babylonjs/branches) and [tags](https://github.com/qwiglydee/serial-experiments-babylonjs/tags). 
+Solution for drag'n'drop from HTML UI to 3D scene with informed gizmo.
+
+![dragging screenshot](screenshots/dragging.png)
