@@ -12,6 +12,7 @@ import { BackgroundMaterial } from "@babylonjs/core/Materials";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
+import { ShapeParams, ShapeFactory } from "./factory";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
