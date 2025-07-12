@@ -47,6 +47,7 @@ export class MyScene extends LitElement {
         this.initUtils();
 
         window.addEventListener("resize", () => this.engine.resize());
+        this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
         this.engine.runRenderLoop(() => this.scene.render());
     }
 

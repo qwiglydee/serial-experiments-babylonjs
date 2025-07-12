@@ -1,8 +1,17 @@
 import { LitElement, nothing, PropertyValues } from "lit";
 import { customElement } from "lit/decorators.js";
+import { provide } from "@lit/context";
+
+import { Nullable } from "@babylonjs/core/types";
+import { Scene } from "@babylonjs/core/scene";
+
+import { sceneContext } from "./context";
 
 @customElement("my-app")
 export class MyApp extends LitElement {
+    @provide({ context: sceneContext })
+    scene: Nullable<Scene> = null;
+
     override createRenderRoot() {
         return this;
     }
@@ -12,11 +21,17 @@ export class MyApp extends LitElement {
     }
 
     override connectedCallback(): void {
-        super.connectedCallback()
+        super.connectedCallback();
+
+        // @ts-ignore the event typing
+        this.addEventListener('scene-ready', (e: CustomEvent<Scene>) => {
+            this.scene = e.detail;
+        });
+
         console.debug("app initialized");
     }
 
     override firstUpdated(changes: PropertyValues): void {
-        console.debug("app updated");
+        console.debug("app created");
     }
 } 
