@@ -30,8 +30,16 @@
 
         my-scene {
             position: absolute;
+            z-index: 0;
             width: 100%;
             height: 100%;
+        }
+
+        my-stuff {
+            position: absolute;
+            z-index: 1;
+            height: 100%;
+            left: 0;
         }
     </style>
     <script src="build/utils/fullscreen.js"></script>
@@ -41,7 +49,7 @@
 <body>
     <my-app>
         <my-scene groundsize="8"></my-scene>
-        <my-something></my-something>
+        <my-stuff></my-stuff>
     </my-app>
 </body>
 

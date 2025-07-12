@@ -7,12 +7,14 @@ import "@babylonjs/core/Helpers/sceneHelpers";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
 import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
-import { Color3, Vector3 } from "@babylonjs/core/Maths";
-import { BackgroundMaterial } from "@babylonjs/core/Materials";
+import { Color3, Plane, Vector3 } from "@babylonjs/core/Maths";
+import { BackgroundMaterial, StandardMaterial } from "@babylonjs/core/Materials";
+import { PickingInfo } from "@babylonjs/core/Collisions";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
 import { ShapeParams, ShapeFactory } from "./factory";
+import { AimingGizmo, GroundConstraints } from "./gizmo";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -46,6 +48,7 @@ export class MyScene extends LitElement {
     override firstUpdated() {
         this.initScene();
         this.initUtils();
+        this.initDragging();
 
         window.addEventListener("resize", () => this.engine.resize());
         this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
@@ -74,6 +77,7 @@ export class MyScene extends LitElement {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
         this.createGrid(this.utils);
         new AxesViewer(this.scene);
+        this.gizmo = new AimingGizmo(this.utils);
     }
 
     _gridMesh!: Mesh;
@@ -110,4 +114,46 @@ export class MyScene extends LitElement {
         this._gridMesh.dispose();
         this.createGrid(this.utils);
     }
-} 
+
+    gizmo!: AimingGizmo;
+
+    initDragging() {
+        const target = this.canvas;
+
+        target.addEventListener('dragenter', (event: DragEvent) => {
+            event.preventDefault();
+            this.gizmo.constraints = { radius: 0.5 * this.groundsize }; // NB: should be set before picking
+            const pick = this.gizmo.pick(event);
+            console.debug("myscene", event.type, pick.hit, pick.pickedPoint);
+            this.gizmo.grab(pick);
+        });
+
+        target.addEventListener('dragover', (event: DragEvent) => {
+            event.preventDefault();
+            const pick = this.gizmo.pick(event);
+            // console.debug("myscene", event.type, pick.hit, pick.pickedPoint);
+            this.gizmo.drag(pick);
+        });
+
+        target.addEventListener('drop', (event: DragEvent) => {
+            event.preventDefault();
+            const pick = this.gizmo.pick(event);
+            const params = JSON.parse(event.dataTransfer!.getData("text/plain"));
+            console.debug("myscene", event.type, pick.hit, pick.pickedPoint, params);
+            if (!pick.hit) return;
+            this.gizmo.factory = new ShapeFactory(this.scene, params);
+            this.gizmo.drop(pick);
+        });
+
+        target.addEventListener('dragleave', (event: DragEvent) => {
+            console.debug("myscene", event.type);
+            this.gizmo.cancel();
+        });
+
+        // this may happen enywere
+        target.ownerDocument.body.addEventListener('dragend', (event: DragEvent) => {
+            console.debug("body", event.type);
+            this.gizmo.cancel();
+        });
+    }
+}

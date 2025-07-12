@@ -16,7 +16,8 @@
   "dependencies": {
     "@babylonjs/core": "^8.0.0",
     "@lit/context": "^1.1.6",
-    "lit": "^3.2.0"
+    "lit": "^3.2.0",
+    "mobile-drag-drop": "^3.0.0-rc.0"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.2.3",
