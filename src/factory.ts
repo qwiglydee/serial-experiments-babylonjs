@@ -1,3 +1,5 @@
+import { StandardMaterial } from "@babylonjs/core/Materials";
+import { Color3 } from "@babylonjs/core/Maths";
 import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
 import { Scene } from "@babylonjs/core/scene";
 
@@ -28,5 +30,22 @@ export class ShapeFactory {
             default:
                 throw Error("Unknown shape");
         }
+    }
+
+    createEntity(): Mesh {
+        const mesh = this.createMesh();
+        const mat = new StandardMaterial("matter", this.scene);
+        mat.diffuseColor = Color3.White();
+        mesh.material = mat;
+        return mesh;
+    }
+
+    createGhost(): Mesh {
+        const mesh = this.createMesh();
+        const mat = new StandardMaterial("ghost", this.scene);
+        mat.diffuseColor = Color3.Black();
+        mat.wireframe = true;
+        mesh.material = mat;
+        return mesh;
     }
 }
