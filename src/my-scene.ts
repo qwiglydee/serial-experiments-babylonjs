@@ -12,6 +12,8 @@ import { BackgroundMaterial } from "@babylonjs/core/Materials";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
+import { IPointerEvent } from "@babylonjs/core/Events";
+import { PickingInfo } from "@babylonjs/core/Collisions";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -45,6 +47,7 @@ export class MyScene extends LitElement {
     override firstUpdated() {
         this.initScene();
         this.initUtils();
+        this.createStuff();
 
         window.addEventListener("resize", () => this.engine.resize());
         this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
@@ -54,6 +57,7 @@ export class MyScene extends LitElement {
     engine!: Engine;
     scene!: Scene;
     utils!: UtilityLayerRenderer;
+    camera!: ArcRotateCamera;
 
     initScene() {
         this.engine = new Engine(this.canvas, true);
@@ -62,11 +66,13 @@ export class MyScene extends LitElement {
 
         this.scene.createDefaultEnvironment({ groundSize: this.groundsize });
         this.scene.createDefaultLight(true);
-        this.scene.createDefaultCamera(true, true, true);
-        let camera = <ArcRotateCamera>this.scene.activeCamera;
-        camera.alpha = .375 * Math.PI;
-        camera.beta = .375 * Math.PI;
-        camera.radius = this.groundsize;
+
+        this.camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
+        this.camera.attachControl();
+
+        this.scene.onPointerPick = (event: IPointerEvent, pickinfo: PickingInfo) => {
+            if (pickinfo.pickedMesh) this.camera.target = pickinfo.pickedMesh.position;
+        }
     }
 
     initUtils() {
@@ -108,5 +114,18 @@ export class MyScene extends LitElement {
     updateGround() {
         this._gridMesh.dispose();
         this.createGrid(this.utils);
+    }
+
+    createStuff() {
+        let mesh: Mesh;
+
+        mesh = MeshBuilder.CreateBox("box", {});
+        mesh.position = new Vector3(-1, 0.5, -1);
+
+        mesh = MeshBuilder.CreateSphere("ball", {});
+        mesh.position = new Vector3(-2, 0.5, 2);
+
+        mesh = MeshBuilder.CreateCylinder("ball", { height: 1, diameterTop: 0 });
+        mesh.position = new Vector3(2, 0.5, -2);
     }
 } 
