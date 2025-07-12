@@ -19,6 +19,10 @@ export class MySomething extends LitElement {
                 display: block;
                 position: absolute;
                 z-index: 10;
+                width: 100%;
+                height: auto;
+                bottom: 0;
+                border: 1px solid magenta;
             }
         `
     ]
