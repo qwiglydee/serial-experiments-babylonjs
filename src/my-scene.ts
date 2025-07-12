@@ -15,6 +15,8 @@ import { bubbleEvent } from "./utils/events";
 import { IPointerEvent } from "@babylonjs/core/Events";
 import { PickingInfo } from "@babylonjs/core/Collisions";
 
+import { interpolateTarget } from "./camera";
+
 @customElement("my-scene")
 export class MyScene extends LitElement {
     @property({ type: Number })
@@ -71,7 +73,8 @@ export class MyScene extends LitElement {
         this.camera.attachControl();
 
         this.scene.onPointerPick = (event: IPointerEvent, pickinfo: PickingInfo) => {
-            if (pickinfo.pickedMesh) this.camera.target = pickinfo.pickedMesh.position;
+            if (!pickinfo.pickedMesh) return;
+            interpolateTarget(this.camera, pickinfo.pickedMesh.position);
         }
     }
 
