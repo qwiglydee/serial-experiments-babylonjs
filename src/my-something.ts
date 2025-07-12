@@ -5,13 +5,18 @@ import { consume } from "@lit/context";
 import { Nullable } from "@babylonjs/core/types";
 import { Scene } from "@babylonjs/core/scene";
 
-import { sceneContext } from "./context";
+import { draggingContext, sceneContext } from "./context";
+import { ShapeParams } from "./factory";
 
 @customElement("my-something")
 export class MySomething extends LitElement {
     @consume({ context: sceneContext, subscribe: true })
     @state()
     scene: Nullable<Scene> = null;
+
+    @consume({ context: draggingContext, subscribe: true })
+    @state()
+    dragging: Nullable<ShapeParams> = null;
 
     static override styles = [
         css`
@@ -22,13 +27,14 @@ export class MySomething extends LitElement {
                 width: 100%;
                 height: auto;
                 bottom: 0;
-                border: 1px solid magenta;
+                text-align: center;
             }
         `
     ]
 
     override render() {
         if (this.scene === null) return html`something going`;
+        if (this.dragging !== null) return html`dragging: ${this.dragging.shape}`;
         return html`something ready`;
     }
 

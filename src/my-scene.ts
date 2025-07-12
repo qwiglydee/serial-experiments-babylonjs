@@ -15,6 +15,10 @@ import { AxesViewer } from "@babylonjs/core/Debug";
 import { bubbleEvent } from "./utils/events";
 import { ShapeParams, ShapeFactory } from "./factory";
 import { AimingGizmo, GroundConstraints } from "./gizmo";
+import { consume } from "@lit/context";
+import { draggingContext } from "./context";
+import { Nullable } from "@babylonjs/core";
+import { assertNonNull } from "./utils/assert";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -115,6 +119,9 @@ export class MyScene extends LitElement {
         this.createGrid(this.utils);
     }
 
+    @consume({ context: draggingContext, subscribe: true })
+    draggingData: Nullable<ShapeParams> = null;
+
     gizmo!: AimingGizmo;
 
     initDragging() {
@@ -122,9 +129,11 @@ export class MyScene extends LitElement {
 
         target.addEventListener('dragenter', (event: DragEvent) => {
             event.preventDefault();
+            assertNonNull(this.draggingData);
             this.gizmo.constraints = { radius: 0.5 * this.groundsize }; // NB: should be set before picking
+            this.gizmo.factory = new ShapeFactory(this.scene, this.draggingData);
             const pick = this.gizmo.pick(event);
-            console.debug("myscene", event.type, pick.hit, pick.pickedPoint);
+            console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
             this.gizmo.grab(pick);
         });
 
@@ -138,10 +147,8 @@ export class MyScene extends LitElement {
         target.addEventListener('drop', (event: DragEvent) => {
             event.preventDefault();
             const pick = this.gizmo.pick(event);
-            const params = JSON.parse(event.dataTransfer!.getData("text/plain"));
-            console.debug("myscene", event.type, pick.hit, pick.pickedPoint, params);
+            console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
             if (!pick.hit) return;
-            this.gizmo.factory = new ShapeFactory(this.scene, params);
             this.gizmo.drop(pick);
         });
 

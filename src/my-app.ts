@@ -5,7 +5,8 @@ import { provide } from "@lit/context";
 import { Nullable } from "@babylonjs/core/types";
 import { Scene } from "@babylonjs/core/scene";
 
-import { sceneContext } from "./context";
+import { draggingContext, sceneContext } from "./context";
+import { ShapeParams } from "./factory";
 
 @customElement("my-app")
 export class MyApp extends LitElement {
@@ -28,10 +29,28 @@ export class MyApp extends LitElement {
             this.scene = e.detail;
         });
 
+        this.initDragging();
+
         console.debug("app initialized");
     }
 
     override firstUpdated(changes: PropertyValues): void {
         console.debug("app created");
     }
+
+    @provide({ context: draggingContext })
+    draggingData: Nullable<ShapeParams> = null;
+
+    initDragging() {
+        this.addEventListener('dragstart', (event: DragEvent) => {
+            this.draggingData = JSON.parse(event.dataTransfer!.getData('text/plain'));
+            // console.debug("app", event.type, this.draggingData);
+        });
+
+        this.addEventListener('dragend', (event: DragEvent) => {
+            this.draggingData = null;
+            // console.debug("app", event.type);
+        });
+    }
+
 } 
