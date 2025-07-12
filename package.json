@@ -1,0 +1,34 @@
+{
+  "name": "babylonjs-demo",
+  "private": true,
+  "version": "2.0.2",
+  "description": "A sample babylonjs/ts setup with lit-dev and modern-web tools",
+  "type": "module",
+  "scripts": {
+    "dist": "rimraf dist/* && tsc && rollup -c",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rimraf build/*.*",
+    "serve": "wds --watch",
+    "serve:prod": "MODE=prod npm run serve",
+    "start": "tsc --watch & wds --watch"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.0.0",
+    "@lit/context": "^1.1.6",
+    "lit": "^3.2.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@web/dev-server": "^0.1.31",
+    "@web/rollup-plugin-copy": "^0.5.1",
+    "@web/rollup-plugin-html": "^2.3.0",
+    "@webcomponents/webcomponentsjs": "^2.8.0",
+    "rimraf": "^4.0.0",
+    "rollup": "^4.41.1",
+    "rollup-plugin-html-literals": "^2.0.0",
+    "rollup-plugin-summary": "^2.0.1",
+    "typescript": "~5.5.0"
+  }
+}
