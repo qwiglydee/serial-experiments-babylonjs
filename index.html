@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Demo page</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            position: relative;
+            width: 100vw;
+            height: var(--vh100, 100vh);
+            overflow: hidden;
+            touch-action: none;
+            font-family: sans-serif;
+        }
+    </style>
+    <script src="build/fullscreen.js"></script>
+    <script type="module" src="build/index.js"></script>
+</head>
+
+<body>
+    <my-app>
+        <!-- stub application -->
+    </my-app>
+</body>
+
+</html>
