@@ -6,4 +6,8 @@ The code exploits modern web-components approach with [Lit library](https://lit.
 
 ---- 
 
-All the stuff goes to [branches](https://github.com/qwiglydee/serial-experiments-babylonjs/branches) and [tags](https://github.com/qwiglydee/serial-experiments-babylonjs/tags). 
+Intrtpolating `ArcRotateCamera` to new a target, the same way as setting vector target, but smoothly.
+
+```typescript
+function interpolateTarget(camera: ArcRotateCamera, newtarget: Vector3);
+```
