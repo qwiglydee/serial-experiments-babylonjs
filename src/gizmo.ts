@@ -100,7 +100,6 @@ export class AimingGizmo implements IAimingGizmo {
     }
 
     cancel() {
-        this.factory = null;
         this._ghostMesh?.dispose();
         this._ghostMesh = null;
     }

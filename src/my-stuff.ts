@@ -1,6 +1,8 @@
 import { css, html, LitElement } from "lit";
 import { customElement, queryAll } from "lit/decorators.js";
 
+import { origTarget } from "./utils/events";
+
 @customElement("my-stuff")
 export class MyStuff extends LitElement {
     static override styles = css`
@@ -60,19 +62,13 @@ export class MyStuff extends LitElement {
     }
 
     override firstUpdated() {
-        this.initDragging();
     }
 
     @queryAll("[draggable]")
     draggables!: NodeListOf<HTMLElement>;
-
-    initDragging() {
-        // NB: shadow event delagation doesn't work with polyfill
-        this.draggables.forEach(target => target.addEventListener('dragstart', (event) => this.onGrab(event, target)));
-    }
-
-    /** encode all `data-` attributes into json and attach to dragging transfer */
-    onGrab(event: DragEvent, target: HTMLElement) {
+    override ondragstart = (event: DragEvent) => {
+        const target = origTarget(event);
+        /** encode all `data-` attributes into json and attach to dragging transfer */
         const data = target.dataset;
         event.dataTransfer!.setData("text/plain", JSON.stringify(data));
         console.debug("mystuff", event.type, data);

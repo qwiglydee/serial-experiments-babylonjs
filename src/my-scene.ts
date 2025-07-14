@@ -1,5 +1,5 @@
 import { css, html, LitElement, PropertyValues } from "lit";
-import { customElement, property, query } from "lit/decorators.js";
+import { customElement, property, query, state } from "lit/decorators.js";
 
 import { Engine } from "@babylonjs/core/Engines";
 import { Scene } from "@babylonjs/core/scene";
@@ -25,6 +25,10 @@ export class MyScene extends LitElement {
     @property({ type: Number })
     groundsize: number = 8;
 
+    @consume({ context: draggingContext, subscribe: true })
+    @state()
+    draggingData: Nullable<ShapeParams> = null;
+
     static override styles = css`
         :host {
             display: block;
@@ -43,16 +47,16 @@ export class MyScene extends LitElement {
     }
 
     override update(changes: PropertyValues) {
-        super.update(changes); // NB: may redraw html
-        if (this.hasUpdated) {
+        super.update(changes);
+        if (this.scene?.isReady()) {
             if (changes.has('groundsize')) this.updateGround();
+            if (changes.has('draggingData')) this.ondragging();
         }
     }
 
     override firstUpdated() {
         this.initScene();
         this.initUtils();
-        this.initDragging();
 
         window.addEventListener("resize", () => this.engine.resize());
         this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
@@ -61,7 +65,6 @@ export class MyScene extends LitElement {
 
     engine!: Engine;
     scene!: Scene;
-    utils!: UtilityLayerRenderer;
 
     initScene() {
         this.engine = new Engine(this.canvas, true);
@@ -76,6 +79,9 @@ export class MyScene extends LitElement {
         camera.beta = .375 * Math.PI;
         camera.radius = this.groundsize;
     }
+
+    utils!: UtilityLayerRenderer;
+    gizmo!: AimingGizmo;
 
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
@@ -119,48 +125,45 @@ export class MyScene extends LitElement {
         this.createGrid(this.utils);
     }
 
-    @consume({ context: draggingContext, subscribe: true })
-    draggingData: Nullable<ShapeParams> = null;
-
-    gizmo!: AimingGizmo;
-
-    initDragging() {
-        const target = this.canvas;
-
-        target.addEventListener('dragenter', (event: DragEvent) => {
-            event.preventDefault();
-            assertNonNull(this.draggingData);
-            this.gizmo.constraints = { radius: 0.5 * this.groundsize }; // NB: should be set before picking
-            this.gizmo.factory = new ShapeFactory(this.scene, this.draggingData);
-            const pick = this.gizmo.pick(event);
-            console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
-            this.gizmo.grab(pick);
-        });
-
-        target.addEventListener('dragover', (event: DragEvent) => {
-            event.preventDefault();
-            const pick = this.gizmo.pick(event);
-            // console.debug("myscene", event.type, pick.hit, pick.pickedPoint);
-            this.gizmo.drag(pick);
-        });
-
-        target.addEventListener('drop', (event: DragEvent) => {
-            event.preventDefault();
-            const pick = this.gizmo.pick(event);
-            console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
-            if (!pick.hit) return;
-            this.gizmo.drop(pick);
-        });
-
-        target.addEventListener('dragleave', (event: DragEvent) => {
-            console.debug("myscene", event.type);
+    ondragging = () => {
+        // this.draggingData updated
+        console.debug("myscene.draggingData=", this.draggingData);
+        if (this.draggingData) {
+            this.gizmo.factory = new ShapeFactory(this.scene, this.draggingData!);
+            this.gizmo.constraints = { radius: 0.5 * this.groundsize };
+        } else {
             this.gizmo.cancel();
-        });
-
-        // this may happen enywere
-        target.ownerDocument.body.addEventListener('dragend', (event: DragEvent) => {
-            console.debug("body", event.type);
-            this.gizmo.cancel();
-        });
+            this.gizmo.factory = null;
+            this.gizmo.constraints = null;
+        }
     }
+
+    override ondragenter = (event: DragEvent) => {
+        event.preventDefault();
+        assertNonNull(this.draggingData);
+        const pick = this.gizmo.pick(event);
+        console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
+        this.gizmo.grab(pick);
+    }
+
+    override ondragleave = (event: DragEvent) => {
+        console.debug("myscene", event.type);
+        this.gizmo.cancel();
+    };
+
+    override ondragover = (event: DragEvent) => {
+        event.preventDefault();
+        const pick = this.gizmo.pick(event);
+        // console.debug("myscene", event.type, pick.hit, pick.pickedPoint);
+        this.gizmo.drag(pick);
+    }
+
+    override ondrop = (event: DragEvent) => {
+        event.preventDefault();
+        const pick = this.gizmo.pick(event);
+        console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
+        if (!pick.hit) return;
+        this.gizmo.drop(pick);
+    }
+
 }

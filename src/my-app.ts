@@ -29,8 +29,6 @@ export class MyApp extends LitElement {
             this.scene = e.detail;
         });
 
-        this.initDragging();
-
         console.debug("app initialized");
     }
 
@@ -41,16 +39,14 @@ export class MyApp extends LitElement {
     @provide({ context: draggingContext })
     draggingData: Nullable<ShapeParams> = null;
 
-    initDragging() {
-        this.addEventListener('dragstart', (event: DragEvent) => {
-            this.draggingData = JSON.parse(event.dataTransfer!.getData('text/plain'));
-            // console.debug("app", event.type, this.draggingData);
-        });
+    override ondragstart = (event: DragEvent) => {
+        this.draggingData = JSON.parse(event.dataTransfer!.getData('text/plain'));
+        console.debug("app", event.type, this.draggingData);
+    }
 
-        this.addEventListener('dragend', (event: DragEvent) => {
-            this.draggingData = null;
-            // console.debug("app", event.type);
-        });
+    override ondragend = (event: DragEvent) => {
+        this.draggingData = null;
+        console.debug("app", event.type);
     }
 
 } 
