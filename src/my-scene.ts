@@ -16,6 +16,7 @@ import { IPointerEvent } from "@babylonjs/core/Events";
 import { PickingInfo } from "@babylonjs/core/Collisions";
 
 import { interpolateTarget } from "./camera";
+import { assertNonNull } from "./utils/assert";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -72,9 +73,14 @@ export class MyScene extends LitElement {
         this.camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
         this.camera.attachControl();
 
+        this.scene.getMeshByName("BackgroundPlane")!.isPickable = true;
         this.scene.onPointerPick = (event: IPointerEvent, pickinfo: PickingInfo) => {
-            if (!pickinfo.pickedMesh) return;
-            interpolateTarget(this.camera, pickinfo.pickedMesh.position);
+            assertNonNull(pickinfo.pickedMesh);
+            if (pickinfo.pickedMesh.name == "BackgroundPlane") {
+                this.camera.interpolateTo(.375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero());
+            } else {
+                interpolateTarget(this.camera, pickinfo.pickedMesh.position);
+            }
         }
     }
 
