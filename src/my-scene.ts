@@ -5,13 +5,14 @@ import { Engine } from "@babylonjs/core/Engines";
 import { Scene } from "@babylonjs/core/scene";
 import "@babylonjs/core/Helpers/sceneHelpers";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
-import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
+import { Mesh, MeshBuilder, VertexData } from "@babylonjs/core/Meshes";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
 import { Color3, Vector3 } from "@babylonjs/core/Maths";
-import { BackgroundMaterial } from "@babylonjs/core/Materials";
+import { BackgroundMaterial, FresnelParameters, StandardMaterial } from "@babylonjs/core/Materials";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
+import { HemisphericLight } from "@babylonjs/core/Lights";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -62,10 +63,13 @@ export class MyScene extends LitElement {
         this.engine = new Engine(this.canvas, true);
         this.scene = new Scene(this.engine);
         this.scene.useRightHandedSystem = true;
-        this.scene.createDefaultEnvironment({ groundSize: this.groundsize });
-        this.scene.createDefaultLight(true);
-        let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
+
+        this.scene.createDefaultEnvironment({ createGround: false });
+        this.createLights();
+        let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, 0.25 * this.groundsize, Vector3.Zero(), this.scene);
         this.scene.switchActiveCamera(camera, true);
+        this.createRoom();
+
     }
 
     initUtils() {
@@ -120,5 +124,33 @@ export class MyScene extends LitElement {
 
         mesh = MeshBuilder.CreateCylinder("ball", { height: 1, diameterTop: 0 });
         mesh.position = new Vector3(2, 0.5, -2);
+    }
+
+    createLights() {
+        let light
+        light = new HemisphericLight("light0", new Vector3(0, 1, 1), this.scene);
+        light.intensity = 0.625;
+        light = new HemisphericLight("light1", new Vector3(0, -1, 1), this.scene);
+        light.intensity = 0.375;
+    }
+
+    createRoom() {
+        let room = MeshBuilder.CreateBox("room", {
+            width: 10, depth: 10, height: 2,
+            sideOrientation: VertexData.BACKSIDE,
+        }, this.scene);
+        room.position.y = 1;
+
+        let mat = new StandardMaterial("walls", this.scene);
+        mat.diffuseColor = Color3.White().scale(0.5);
+        mat.alpha = 0;
+        mat.opacityFresnelParameters = new FresnelParameters({
+            isEnabled: true,
+            power: 0.3,
+            leftColor: Color3.Black(),
+            rightColor: Color3.White(),
+        })
+
+        room.material = mat;
     }
 } 
