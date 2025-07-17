@@ -63,13 +63,9 @@ export class MyScene extends LitElement {
         this.scene = new Scene(this.engine);
         this.scene.useRightHandedSystem = true;
         this.scene.createDefaultEnvironment({ groundSize: this.groundsize });
-
         this.scene.createDefaultLight(true);
-        this.scene.createDefaultCamera(true, true, true);
-        let camera = <ArcRotateCamera>this.scene.activeCamera;
-        camera.alpha = .375 * Math.PI;
-        camera.beta = .375 * Math.PI;
-        camera.radius = this.groundsize;
+        let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
+        this.scene.switchActiveCamera(camera, true);
     }
 
     initUtils() {
