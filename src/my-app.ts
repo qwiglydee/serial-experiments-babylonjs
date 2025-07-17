@@ -25,11 +25,7 @@ export class MyApp extends LitElement {
         super.connectedCallback();
 
         // @ts-ignore the event typing
-        this.addEventListener('scene-ready', (e: CustomEvent<Scene>) => {
-            this.scene = e.detail;
-        });
-
-        console.debug("app initialized");
+        this.addEventListener('scene-ready', (e: CustomEvent<Scene>) => { this.scene = e.detail; });
     }
 
     override firstUpdated(changes: PropertyValues): void {

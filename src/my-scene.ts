@@ -47,8 +47,8 @@ export class MyScene extends LitElement {
     }
 
     override update(changes: PropertyValues) {
-        super.update(changes);
-        if (this.scene?.isReady()) {
+        super.update(changes); // NB: refreshes html
+        if (this.hasUpdated) {
             if (changes.has('groundsize')) this.updateGround();
             if (changes.has('draggingData')) this.ondragging();
         }
@@ -57,10 +57,13 @@ export class MyScene extends LitElement {
     override firstUpdated() {
         this.initScene();
         this.initUtils();
+        this.createStuff();
 
         window.addEventListener("resize", () => this.engine.resize());
-        this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
         this.engine.runRenderLoop(() => this.scene.render());
+
+        this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene));
+        if (this.scene.isReady()) this.scene.onReadyObservable.notifyObservers(this.scene); // may already be ready
     }
 
     engine!: Engine;
@@ -70,14 +73,10 @@ export class MyScene extends LitElement {
         this.engine = new Engine(this.canvas, true);
         this.scene = new Scene(this.engine);
         this.scene.useRightHandedSystem = true;
-
         this.scene.createDefaultEnvironment({ groundSize: this.groundsize });
         this.scene.createDefaultLight(true);
-        this.scene.createDefaultCamera(true, true, true);
-        let camera = <ArcRotateCamera>this.scene.activeCamera;
-        camera.alpha = .375 * Math.PI;
-        camera.beta = .375 * Math.PI;
-        camera.radius = this.groundsize;
+        let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
+        this.scene.switchActiveCamera(camera, true);
     }
 
     utils!: UtilityLayerRenderer;
@@ -123,6 +122,19 @@ export class MyScene extends LitElement {
     updateGround() {
         this._gridMesh.dispose();
         this.createGrid(this.utils);
+    }
+
+    createStuff() {
+        let mesh: Mesh;
+
+        mesh = MeshBuilder.CreateBox("box", {});
+        mesh.position = new Vector3(-1, 0.5, -1);
+
+        mesh = MeshBuilder.CreateSphere("ball", {});
+        mesh.position = new Vector3(-2, 0.5, 2);
+
+        mesh = MeshBuilder.CreateCylinder("ball", { height: 1, diameterTop: 0 });
+        mesh.position = new Vector3(2, 0.5, -2);
     }
 
     ondragging = () => {
