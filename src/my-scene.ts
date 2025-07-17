@@ -12,6 +12,8 @@ import { BackgroundMaterial } from "@babylonjs/core/Materials";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
+import { PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
+import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -66,15 +68,27 @@ export class MyScene extends LitElement {
         this.scene.createDefaultLight(true);
         let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
         this.scene.switchActiveCamera(camera, true);
+
+        // pick on tap/click
+        this.scene.onPointerObservable.add((info: PointerInfo) => {
+            if (info.type != PointerEventTypes.POINTERTAP || !info.pickInfo) return;
+            if (info.pickInfo.pickedMesh && info.pickInfo.pickedMesh) {
+                this.onpick(<PointerEvent>info.event, <PickingInfo>info.pickInfo);
+            } else {
+                this.unpick();
+            }
+        });
     }
+
+    _axes!: AxesViewer;
+    _gridMesh!: Mesh;
 
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
         this.createGrid(this.utils);
-        new AxesViewer(this.scene);
+        this._axes = new AxesViewer(this.scene);
     }
 
-    _gridMesh!: Mesh;
     createGrid(layer: UtilityLayerRenderer) {
         const scene = layer.utilityLayerScene;
 
@@ -118,7 +132,15 @@ export class MyScene extends LitElement {
         mesh = MeshBuilder.CreateSphere("ball", {});
         mesh.position = new Vector3(-2, 0.5, 2);
 
-        mesh = MeshBuilder.CreateCylinder("ball", { height: 1, diameterTop: 0 });
+        mesh = MeshBuilder.CreateCylinder("cone", { height: 1, diameterTop: 0 });
         mesh.position = new Vector3(2, 0.5, -2);
+    }
+
+    onpick(event: PointerEvent, pickinfo: PickingInfo) {
+        console.debug("picked", pickinfo.pickedMesh!.name, pickinfo.pickedMesh, pickinfo.pickedPoint);
+    }
+
+    unpick() {
+        console.debug("unpicked");
     }
 } 
