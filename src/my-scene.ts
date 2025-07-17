@@ -36,7 +36,7 @@ export class MyScene extends LitElement {
     }
 
     override update(changes: PropertyValues) {
-        super.update(changes); // NB: may redraw html
+        super.update(changes); // NB: refreshes html
         if (this.hasUpdated) {
             if (changes.has('groundsize')) this.updateGround();
         }
@@ -48,8 +48,10 @@ export class MyScene extends LitElement {
         this.createStuff();
 
         window.addEventListener("resize", () => this.engine.resize());
-        this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
         this.engine.runRenderLoop(() => this.scene.render());
+
+        this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene));
+        if (this.scene.isReady()) this.scene.onReadyObservable.notifyObservers(this.scene); // may already be ready
     }
 
     engine!: Engine;
@@ -60,8 +62,8 @@ export class MyScene extends LitElement {
         this.engine = new Engine(this.canvas, true);
         this.scene = new Scene(this.engine);
         this.scene.useRightHandedSystem = true;
-
         this.scene.createDefaultEnvironment({ groundSize: this.groundsize });
+
         this.scene.createDefaultLight(true);
         this.scene.createDefaultCamera(true, true, true);
         let camera = <ArcRotateCamera>this.scene.activeCamera;
