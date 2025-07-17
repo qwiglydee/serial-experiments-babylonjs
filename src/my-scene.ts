@@ -46,6 +46,7 @@ export class MyScene extends LitElement {
     override firstUpdated() {
         this.initScene();
         this.initUtils();
+        this.createRoom();
         this.createStuff();
 
         window.addEventListener("resize", () => this.engine.resize());
@@ -66,9 +67,8 @@ export class MyScene extends LitElement {
 
         this.scene.createDefaultEnvironment({ createGround: false });
         this.createLights();
-        let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, 0.25 * this.groundsize, Vector3.Zero(), this.scene);
+        let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, 0.5 * this.groundsize, Vector3.Zero(), this.scene);
         this.scene.switchActiveCamera(camera, true);
-        this.createRoom();
 
     }
 
@@ -136,7 +136,7 @@ export class MyScene extends LitElement {
 
     createRoom() {
         let room = MeshBuilder.CreateBox("room", {
-            width: 10, depth: 10, height: 2,
+            width: this.groundsize, depth: this.groundsize, height: 2,
             sideOrientation: VertexData.BACKSIDE,
         }, this.scene);
         room.position.y = 1;
