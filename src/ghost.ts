@@ -68,11 +68,15 @@ export class Ghost extends AbstractMesh {
     copyVerticesData() { }
 }
 
+export interface GhostLink {
+    target: AbstractMesh;
+    master: AbstractMesh;
+}
+
 /**
  * Makes attached mesh to smoothly follow it's goal.
  */
-export class GhostBehavior implements Behavior<TransformNode> {
-    goal: Nullable<AbstractMesh> = null;
+export class GhostBehavior implements Behavior<GhostLink> {
     draggingRatio = 0.1;
 
     get name() {
@@ -81,29 +85,32 @@ export class GhostBehavior implements Behavior<TransformNode> {
 
     init() { };
 
-    attached: Nullable<TransformNode> = null;
+    _master: Nullable<AbstractMesh> = null;
+    _target: Nullable<AbstractMesh> = null;
     _animatingPos: boolean = false;
     _animatingDim: boolean = false;
 
-    attach(target: TransformNode) {
-        this.attached = target;
+    attach(link: GhostLink) {
+        this._master = link.master;
+        this._target = link.target;
         this.reset();
-        this._setupObserver();
+        this._setupObservers();
     }
 
     detach() {
-        this._removeObserver();
+        this._removeObservers();
         this.reset();
-        this.attached = null;
+        this._master = null;
+        this._target = null;
     }
 
     reset() {
-        assertNonNull(this.goal);
-        assertNonNull(this.attached);
+        assertNonNull(this._master);
+        assertNonNull(this._target);
+        this._target.position.copyFrom(this._master.position);
+        this._target.scaling.copyFrom(this._master.scaling);
         this._animatingPos = false;
         this._animatingDim = false;
-        this.attached.position.copyFrom(this.goal.position);
-        this.attached.scaling.copyFrom(this.goal.scaling);
     }
 
     restart() {
@@ -111,39 +118,42 @@ export class GhostBehavior implements Behavior<TransformNode> {
         this._animatingDim = true;
     }
 
-    _onBeforeRender: any;
-    _setupObserver() {
-        const scene = this.attached!.getScene();
-        this._onBeforeRender = scene.onBeforeRenderObservable.add(() => this._animate())
+    _onRender: any;
+    _onChange: any;
+    _setupObservers() {
+        assertNonNull(this._master);
+        assertNonNull(this._target);
+        this._onChange = this._master.onAfterWorldMatrixUpdateObservable.add(() => this.restart());
+        this._onRender = this._target.getScene().onBeforeRenderObservable.add(() => this._animate());
     }
 
-    _removeObserver() {
-        const scene = this.attached!.getScene();
-        if (this._onBeforeRender) scene.onBeforeRenderObservable.remove(this._onBeforeRender);
+    _removeObservers() {
+        if (this._onChange) this._onChange.remove();
+        if (this._onRender) this._onRender.remove();
     }
 
     _animate() {
-        // similar to dragging interpolation:
-        // current += (target - current) * ratio
-        assertNonNull(this.goal);
-        assertNonNull(this.attached);
+        // similar to dragging interpolation: current += (goal - current) * ratio
+        assertNonNull(this._master);
+        assertNonNull(this._target);
+
         if (this._animatingPos) {
-            let delta = this.goal.position.subtract(this.attached.position).scale(this.draggingRatio);
+            let delta = this._master.position.subtract(this._target.position).scale(this.draggingRatio);
             this._animatingPos = delta.length() > Epsilon;
             if (this._animatingPos) {
-                this.attached.position.addInPlace(delta);
+                this._target.position.addInPlace(delta);
             } else {
-                this.attached.position.copyFrom(this.goal.position);
+                this._target.position.copyFrom(this._master.position);
             }
         }
 
         if (this._animatingDim) {
-            let delta = this.goal.scaling.subtract(this.attached.scaling).scale(this.draggingRatio);
+            let delta = this._master.scaling.subtract(this._target.scaling).scale(this.draggingRatio);
             this._animatingDim = delta.length() > Epsilon;
             if (this._animatingDim) {
-                this.attached.scaling.addInPlace(delta);
+                this._target.scaling.addInPlace(delta);
             } else {
-                this.attached.scaling.copyFrom(this.goal.scaling);
+                this._target.scaling.copyFrom(this._master.scaling);
             }
         }
     }

@@ -16,6 +16,7 @@ import { PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
 import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 import { CreateFrameMesh, Ghost, GhostBehavior } from "./ghost";
 import { Behavior } from "@babylonjs/core/Behaviors";
+import { assertNonNull } from "./utils/asserts";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -99,7 +100,7 @@ export class MyScene extends LitElement {
         this._ghostmesh = CreateFrameMesh("ghost.box", {}, uscene);
         this._ghostmesh.setEnabled(false);
         this._ghostbeh = new GhostBehavior();
-        this._ghostbeh.goal = this._ghost;
+        this._ghostbeh.attach({ master: this._ghost, target: this._ghostmesh });
     }
 
     createGrid(layer: UtilityLayerRenderer) {
@@ -142,7 +143,8 @@ export class MyScene extends LitElement {
         mesh = MeshBuilder.CreateBox("box", {});
         mesh.position = new Vector3(-1, 0.5, -1);
 
-        mesh = MeshBuilder.CreateSphere("ball", { diameter: 1.5 });
+        mesh = MeshBuilder.CreateSphere("ball", {});
+        mesh.scaling = new Vector3(1.5, 1.5, 1.5);
         mesh.position = new Vector3(-2, 0.75, 2);
 
         mesh = MeshBuilder.CreateCylinder("cone", { diameterTop: 0 });
@@ -151,18 +153,19 @@ export class MyScene extends LitElement {
 
     onpick(event: PointerEvent, pickinfo: PickingInfo) {
         console.debug("picked", pickinfo.pickedMesh!.name, pickinfo.pickedMesh, pickinfo.pickedPoint);
-        const bbox = pickinfo.pickedMesh!.getBoundingInfo().boundingBox;
+        assertNonNull(pickinfo.pickedMesh);
+        const bbox = pickinfo.pickedMesh.getBoundingInfo().boundingBox;
         this._ghost.position.copyFrom(bbox.centerWorld);
         this._ghost.scaling.copyFrom(bbox.extendSizeWorld.scale(2));
-
-        if (!this._ghostbeh.attached) this._ghostbeh.attach(this._ghostmesh);
-        this._ghostbeh.restart();
+        // this._ghostbeh.attach({ master: pickinfo.pickedMesh, ghost: this._ghostmesh });
+        if (!this._ghostmesh.isEnabled()) this._ghostbeh.reset();
         this._ghostmesh.setEnabled(true);
     }
 
     unpick() {
         console.debug("unpicked");
-        if (this._ghostbeh.attached) this._ghostbeh.detach();
+        this._ghostbeh.reset();
+        // this._ghostbeh.detach();
         this._ghostmesh.setEnabled(false);
     }
 } 
