@@ -45,6 +45,7 @@ export class MyScene extends LitElement {
     override firstUpdated() {
         this.initScene();
         this.initUtils();
+        this.createStuff();
 
         window.addEventListener("resize", () => this.engine.resize());
         this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
@@ -108,5 +109,18 @@ export class MyScene extends LitElement {
     updateGround() {
         this._gridMesh.dispose();
         this.createGrid(this.utils);
+    }
+
+    createStuff() {
+        let mesh: Mesh;
+
+        mesh = MeshBuilder.CreateBox("box", {});
+        mesh.position = new Vector3(-1, 0.5, -1);
+
+        mesh = MeshBuilder.CreateSphere("ball", {});
+        mesh.position = new Vector3(-2, 0.5, 2);
+
+        mesh = MeshBuilder.CreateCylinder("ball", { height: 1, diameterTop: 0 });
+        mesh.position = new Vector3(2, 0.5, -2);
     }
 } 
