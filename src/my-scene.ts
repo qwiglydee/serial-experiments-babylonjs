@@ -41,7 +41,7 @@ export class MyScene extends LitElement {
     }
 
     override update(changes: PropertyValues) {
-        super.update(changes); // NB: may redraw html
+        super.update(changes); // NB: refreshes html
         if (this.hasUpdated) {
             if (changes.has('groundsize')) this.updateGround();
         }
@@ -51,10 +51,13 @@ export class MyScene extends LitElement {
         this.initScene();
         this.initUtils();
         this.createStuff();
+        this.createStuff();
 
         window.addEventListener("resize", () => this.engine.resize());
-        this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene))
         this.engine.runRenderLoop(() => this.scene.render());
+
+        this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene));
+        if (this.scene.isReady()) this.scene.onReadyObservable.notifyObservers(this.scene); // may already be ready
     }
 
     engine!: Engine;
@@ -66,12 +69,11 @@ export class MyScene extends LitElement {
         this.engine = new Engine(this.canvas, true);
         this.scene = new Scene(this.engine);
         this.scene.useRightHandedSystem = true;
-
         this.scene.createDefaultEnvironment({ groundSize: this.groundsize });
         this.scene.createDefaultLight(true);
 
         this.camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
-        this.camera.attachControl();
+        this.scene.switchActiveCamera(this.camera, true);
 
         this.scene.getMeshByName("BackgroundPlane")!.isPickable = true;
         this.scene.onPointerPick = (event: IPointerEvent, pickinfo: PickingInfo) => {
