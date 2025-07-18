@@ -5,6 +5,7 @@ import { BoundingInfo } from "@babylonjs/core/Culling/boundingInfo";
 import { Behavior } from "@babylonjs/core/Behaviors";
 import { Nullable } from "@babylonjs/core/types";
 import { assertNonNull } from "./utils/asserts";
+import { Observer } from "@babylonjs/core/Misc/observable";
 
 const BOXPOINTS = [
     new Vector3(0.0, 0.0, 0.0),
@@ -68,63 +69,72 @@ export class Ghost extends AbstractMesh {
     copyVerticesData() { }
 }
 
-export interface GhostLink {
-    target: AbstractMesh;
-    master: AbstractMesh;
-}
-
 /**
- * Makes attached mesh to smoothly follow it's goal.
+ * Makes satellite mesh to mimic target's position and scaling with interpolation.
+ * FIXME: mimic bounding dimensions instead
+ * TODO: rotation
  */
-export class GhostBehavior implements Behavior<GhostLink> {
+export class GhostBehavior implements Behavior<AbstractMesh> {
     draggingRatio = 0.1;
 
     get name() {
-        return "GhostBehavior";
+        return "Ghost";
     }
 
-    init() { };
+    attachedMesh: Nullable<AbstractMesh> = null;
+    _ghostMesh: Nullable<AbstractMesh> = null;
 
-    _master: Nullable<AbstractMesh> = null;
-    _target: Nullable<AbstractMesh> = null;
+    get ghostMesh(): Nullable<AbstractMesh> {
+        return this._ghostMesh;
+    }
+
+    set ghostMesh(mesh: AbstractMesh) {
+        this._ghostMesh = mesh;
+        if (this.attachedMesh) this.reset();
+    }
+
     _animatingPos: boolean = false;
     _animatingDim: boolean = false;
 
-    attach(link: GhostLink) {
-        this._master = link.master;
-        this._target = link.target;
+    init() {
+        assertNonNull(this._ghostMesh);
+    };
+
+    attach(target: AbstractMesh, ghost?: AbstractMesh) {
+        if (ghost) this.ghostMesh = ghost;
+        this.attachedMesh = target;
         this.reset();
         this._setupObservers();
+        this._ghostMesh!.setEnabled(true);
     }
 
     detach() {
+        this._ghostMesh!.setEnabled(false);
         this._removeObservers();
-        this.reset();
-        this._master = null;
-        this._target = null;
+        this.attachedMesh = null
     }
 
     reset() {
-        assertNonNull(this._master);
-        assertNonNull(this._target);
-        this._target.position.copyFrom(this._master.position);
-        this._target.scaling.copyFrom(this._master.scaling);
+        assertNonNull(this.attachedMesh);
+        assertNonNull(this._ghostMesh);
+        this._ghostMesh.position.copyFrom(this.attachedMesh.position);
+        this._ghostMesh.scaling.copyFrom(this.attachedMesh.scaling);
         this._animatingPos = false;
         this._animatingDim = false;
     }
 
-    restart() {
+    interpolate() {
         this._animatingPos = true;
         this._animatingDim = true;
     }
 
-    _onRender: any;
-    _onChange: any;
+    _onRender?: Observer<any>;
+    _onChange?: Observer<any>;
     _setupObservers() {
-        assertNonNull(this._master);
-        assertNonNull(this._target);
-        this._onChange = this._master.onAfterWorldMatrixUpdateObservable.add(() => this.restart());
-        this._onRender = this._target.getScene().onBeforeRenderObservable.add(() => this._animate());
+        assertNonNull(this._ghostMesh);
+        assertNonNull(this.attachedMesh);
+        this._onChange = this.attachedMesh.onAfterWorldMatrixUpdateObservable.add(() => this.interpolate());
+        this._onRender = this._ghostMesh.getScene().onBeforeRenderObservable.add(() => this._interpolating());
     }
 
     _removeObservers() {
@@ -132,28 +142,28 @@ export class GhostBehavior implements Behavior<GhostLink> {
         if (this._onRender) this._onRender.remove();
     }
 
-    _animate() {
+    _interpolating() {
         // similar to dragging interpolation: current += (goal - current) * ratio
-        assertNonNull(this._master);
-        assertNonNull(this._target);
+        assertNonNull(this._ghostMesh);
+        assertNonNull(this.attachedMesh);
 
         if (this._animatingPos) {
-            let delta = this._master.position.subtract(this._target.position).scale(this.draggingRatio);
+            let delta = this.attachedMesh.position.subtract(this._ghostMesh.position).scale(this.draggingRatio);
             this._animatingPos = delta.length() > Epsilon;
             if (this._animatingPos) {
-                this._target.position.addInPlace(delta);
+                this._ghostMesh.position.addInPlace(delta);
             } else {
-                this._target.position.copyFrom(this._master.position);
+                this._ghostMesh.position.copyFrom(this.attachedMesh.position);
             }
         }
 
         if (this._animatingDim) {
-            let delta = this._master.scaling.subtract(this._target.scaling).scale(this.draggingRatio);
+            let delta = this.attachedMesh.scaling.subtract(this._ghostMesh.scaling).scale(this.draggingRatio);
             this._animatingDim = delta.length() > Epsilon;
             if (this._animatingDim) {
-                this._target.scaling.addInPlace(delta);
+                this._ghostMesh.scaling.addInPlace(delta);
             } else {
-                this._target.scaling.copyFrom(this._master.scaling);
+                this._ghostMesh.scaling.copyFrom(this.attachedMesh.scaling);
             }
         }
     }

@@ -5,18 +5,19 @@ import { Engine } from "@babylonjs/core/Engines";
 import { Scene } from "@babylonjs/core/scene";
 import "@babylonjs/core/Helpers/sceneHelpers";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
-import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
+import { AbstractMesh, Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
 import { Color3, Vector3 } from "@babylonjs/core/Maths";
 import { BackgroundMaterial } from "@babylonjs/core/Materials";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
-import { PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
+import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
 import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 import { CreateFrameMesh, Ghost, GhostBehavior } from "./ghost";
 import { Behavior } from "@babylonjs/core/Behaviors";
 import { assertNonNull } from "./utils/asserts";
+import { Nullable } from "@babylonjs/core/types";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -81,26 +82,26 @@ export class MyScene extends LitElement {
                 this.unpick();
             }
         });
+
+        this.scene.onKeyboardObservable.add((info: KeyboardInfo) => {
+            if (info.type == KeyboardEventTypes.KEYDOWN && info.event.code == 'Space' && this._picked) {
+                this._picked.position = new Vector3(
+                    (Math.random() - 0.5) * this.groundsize,
+                    0,
+                    (Math.random() - 0.5) * this.groundsize,
+                )
+            }
+        })
     }
 
     _gridMesh!: Mesh;
     _axes!: AxesViewer;
-    _ghost!: Ghost;
-    _ghostmesh!: Mesh;
-    _ghostbeh!: GhostBehavior;
-
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
-        const uscene = this.utils.utilityLayerScene;
         this.createGrid(this.utils);
-        this._axes = new AxesViewer(uscene);
+        this._axes = new AxesViewer(this.utils.utilityLayerScene);
 
-        // TODO: GhostGizmo
-        this._ghost = new Ghost("ghost", this.scene);
-        this._ghostmesh = CreateFrameMesh("ghost.box", {}, uscene);
-        this._ghostmesh.setEnabled(false);
-        this._ghostbeh = new GhostBehavior();
-        this._ghostbeh.attach({ master: this._ghost, target: this._ghostmesh });
+        this.initGhost(this.utils);
     }
 
     createGrid(layer: UtilityLayerRenderer) {
@@ -140,32 +141,46 @@ export class MyScene extends LitElement {
     createStuff() {
         let mesh: Mesh;
 
-        mesh = MeshBuilder.CreateBox("box", {});
-        mesh.position = new Vector3(-1, 0.5, -1);
+        mesh = MeshBuilder.CreateBox("stuff.box", {});
+        mesh.position = new Vector3(-1, 0, -1);
 
-        mesh = MeshBuilder.CreateSphere("ball", {});
+        mesh = MeshBuilder.CreateSphere("stuff.ball1", { diameter: 1.0 });
         mesh.scaling = new Vector3(1.5, 1.5, 1.5);
-        mesh.position = new Vector3(-2, 0.75, 2);
+        mesh.position = new Vector3(-1, 0, 2);
 
-        mesh = MeshBuilder.CreateCylinder("cone", { diameterTop: 0 });
-        mesh.position = new Vector3(2, 1.0, -2);
+        mesh = MeshBuilder.CreateCylinder("stuff.cone", { diameterTop: 0 });
+        mesh.position = new Vector3(2, 0, -2);
+
+        mesh = MeshBuilder.CreateIcoSphere("stuff.diamond", { radius: 0.5, subdivisions: 1 });
     }
 
+    _ghost!: Ghost;
+    _ghosting!: GhostBehavior;
+    initGhost(layer: UtilityLayerRenderer) {
+        const uscene = layer.utilityLayerScene;
+
+        this._ghosting = new GhostBehavior();
+        this._ghosting.ghostMesh = CreateFrameMesh("ghost.box", {}, uscene);
+
+        // this._ghost = new Ghost("ghost", this.scene);
+        // this._ghosting.attach(this._ghost);
+    }
+
+    _picked: Nullable<AbstractMesh> = null;
     onpick(event: PointerEvent, pickinfo: PickingInfo) {
         console.debug("picked", pickinfo.pickedMesh!.name, pickinfo.pickedMesh, pickinfo.pickedPoint);
         assertNonNull(pickinfo.pickedMesh);
-        const bbox = pickinfo.pickedMesh.getBoundingInfo().boundingBox;
-        this._ghost.position.copyFrom(bbox.centerWorld);
-        this._ghost.scaling.copyFrom(bbox.extendSizeWorld.scale(2));
-        // this._ghostbeh.attach({ master: pickinfo.pickedMesh, ghost: this._ghostmesh });
-        if (!this._ghostmesh.isEnabled()) this._ghostbeh.reset();
-        this._ghostmesh.setEnabled(true);
+        this._picked = pickinfo.pickedMesh;
+        this._ghosting.attach(pickinfo.pickedMesh);
+        // const bbox = pickinfo.pickedMesh.getBoundingInfo().boundingBox;
+        // this._ghost.position.copyFrom(bbox.centerWorld);
+        // this._ghost.scaling.copyFrom(bbox.extendSizeWorld.scale(2));
+        // this._ghosting!.ghostMesh!.setEnabled(true);
     }
 
     unpick() {
         console.debug("unpicked");
-        this._ghostbeh.reset();
-        // this._ghostbeh.detach();
-        this._ghostmesh.setEnabled(false);
+        this._ghosting.detach();
+        this._picked = null;
     }
 } 
