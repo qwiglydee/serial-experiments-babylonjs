@@ -88,8 +88,8 @@ export class BoundingGhost extends AbstractMesh {
 }
 
 /**
- * Makes satellite mesh to mimic target's position and scaling with interpolation.
- * FIXME: mimic bounding dimensions instead
+ * Makes satellite mesh to mimic target's position and dimension with interpolation.
+ * The ghost mesh should be locally 1x1x1
  * TODO: rotation
  */
 export class GhostBehavior implements Behavior<AbstractMesh> {
@@ -111,8 +111,8 @@ export class GhostBehavior implements Behavior<AbstractMesh> {
         if (this.attachedMesh) this.reset();
     }
 
-    _animatingPos: boolean = false;
-    _animatingDim: boolean = false;
+    _goalPos: Nullable<Vector3> = null;
+    _goalDim: Nullable<Vector3> = null;
 
     init() {
         assertNonNull(this._ghostMesh);
@@ -132,18 +132,26 @@ export class GhostBehavior implements Behavior<AbstractMesh> {
         this.attachedMesh = null
     }
 
-    reset() {
+    _getGoal() {
         assertNonNull(this.attachedMesh);
-        assertNonNull(this._ghostMesh);
-        this._ghostMesh.position.copyFrom(this.attachedMesh.position);
-        this._ghostMesh.scaling.copyFrom(this.attachedMesh.scaling);
-        this._animatingPos = false;
-        this._animatingDim = false;
+        return {
+            pos: this.attachedMesh.absolutePosition,
+            dim: this.attachedMesh.getBoundingInfo().boundingBox.extendSizeWorld.scale(2)
+        }
+    }
+
+    reset() {
+        const { pos, dim } = this._getGoal();
+        this._ghostMesh!.position.copyFrom(pos);
+        this._ghostMesh!.scaling.copyFrom(dim);
+        this._goalPos = null;
+        this._goalDim = null;
     }
 
     interpolate() {
-        this._animatingPos = true;
-        this._animatingDim = true;
+        const { pos, dim } = this._getGoal();
+        this._goalPos = pos;
+        this._goalDim = dim;
     }
 
     _onRender?: Observer<any>;
@@ -165,23 +173,23 @@ export class GhostBehavior implements Behavior<AbstractMesh> {
         assertNonNull(this._ghostMesh);
         assertNonNull(this.attachedMesh);
 
-        if (this._animatingPos) {
-            let delta = this.attachedMesh.position.subtract(this._ghostMesh.position).scale(this.draggingRatio);
-            this._animatingPos = delta.length() > Epsilon;
-            if (this._animatingPos) {
+        if (this._goalPos !== null) {
+            let delta = this._goalPos.subtract(this._ghostMesh.position).scale(this.draggingRatio);
+            if (delta.length() > Epsilon) {
                 this._ghostMesh.position.addInPlace(delta);
             } else {
-                this._ghostMesh.position.copyFrom(this.attachedMesh.position);
+                this._ghostMesh.position.copyFrom(this._goalPos);
+                this._goalPos = null;
             }
         }
 
-        if (this._animatingDim) {
-            let delta = this.attachedMesh.scaling.subtract(this._ghostMesh.scaling).scale(this.draggingRatio);
-            this._animatingDim = delta.length() > Epsilon;
-            if (this._animatingDim) {
+        if (this._goalDim !== null) {
+            let delta = this._goalDim.subtract(this._ghostMesh.scaling).scale(this.draggingRatio);
+            if (delta.length() > Epsilon) {
                 this._ghostMesh.scaling.addInPlace(delta);
             } else {
-                this._ghostMesh.scaling.copyFrom(this.attachedMesh.scaling);
+                this._ghostMesh.scaling.copyFrom(this._goalDim);
+                this._goalDim = null;
             }
         }
     }

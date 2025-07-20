@@ -89,6 +89,8 @@ export class MyScene extends LitElement {
                     0,
                     (Math.random() - 0.5) * this.groundsize,
                 )
+                this._picked.scaling = Vector3.One().scale(Math.random() + 0.5);
+                this._picked.computeWorldMatrix();
             }
         })
     }
