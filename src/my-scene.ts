@@ -141,29 +141,23 @@ export class MyScene extends LitElement {
     createStuff() {
         let mesh: Mesh;
 
-        mesh = MeshBuilder.CreateBox("stuff.box", {});
+        mesh = MeshBuilder.CreateBox("box", {});
         mesh.position = new Vector3(-1, 0, -1);
 
-        mesh = MeshBuilder.CreateSphere("stuff.ball1", { diameter: 1.0 });
+        mesh = MeshBuilder.CreateSphere("ball", { diameter: 1.0 });
         mesh.scaling = new Vector3(1.5, 1.5, 1.5);
         mesh.position = new Vector3(-1, 0, 2);
 
-        mesh = MeshBuilder.CreateCylinder("stuff.cone", { diameterTop: 0 });
+        mesh = MeshBuilder.CreateCylinder("cone", { diameterTop: 0 });
         mesh.position = new Vector3(2, 0, -2);
-
-        mesh = MeshBuilder.CreateIcoSphere("stuff.diamond", { radius: 0.5, subdivisions: 1 });
     }
 
-    _ghost!: Ghost;
-    _ghosting!: GhostBehavior;
+    _ghost!: GhostBehavior;
     initGhost(layer: UtilityLayerRenderer) {
         const uscene = layer.utilityLayerScene;
 
-        this._ghosting = new GhostBehavior();
-        this._ghosting.ghostMesh = CreateFrameMesh("ghost.box", {}, uscene);
-
-        // this._ghost = new Ghost("ghost", this.scene);
-        // this._ghosting.attach(this._ghost);
+        this._ghost = new GhostBehavior();
+        this._ghost.ghostMesh = CreateFrameMesh("ghost.box", {}, uscene);
     }
 
     _picked: Nullable<AbstractMesh> = null;
@@ -171,16 +165,12 @@ export class MyScene extends LitElement {
         console.debug("picked", pickinfo.pickedMesh!.name, pickinfo.pickedMesh, pickinfo.pickedPoint);
         assertNonNull(pickinfo.pickedMesh);
         this._picked = pickinfo.pickedMesh;
-        this._ghosting.attach(pickinfo.pickedMesh);
-        // const bbox = pickinfo.pickedMesh.getBoundingInfo().boundingBox;
-        // this._ghost.position.copyFrom(bbox.centerWorld);
-        // this._ghost.scaling.copyFrom(bbox.extendSizeWorld.scale(2));
-        // this._ghosting!.ghostMesh!.setEnabled(true);
+        this._ghost.attach(pickinfo.pickedMesh);
     }
 
     unpick() {
         console.debug("unpicked");
-        this._ghosting.detach();
+        this._ghost.detach();
         this._picked = null;
     }
 } 
