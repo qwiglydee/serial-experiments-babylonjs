@@ -14,8 +14,7 @@ import { AxesViewer } from "@babylonjs/core/Debug";
 import { bubbleEvent } from "./utils/events";
 import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
 import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
-import { CreateFrameMesh, Ghost, GhostBehavior } from "./ghost";
-import { Behavior } from "@babylonjs/core/Behaviors";
+import { CreateFrameMesh, GhostBehavior } from "./ghost";
 import { assertNonNull } from "./utils/asserts";
 import { Nullable } from "@babylonjs/core/types";
 
@@ -76,7 +75,7 @@ export class MyScene extends LitElement {
         // pick on tap/click
         this.scene.onPointerObservable.add((info: PointerInfo) => {
             if (info.type != PointerEventTypes.POINTERTAP || !info.pickInfo) return;
-            if (info.pickInfo.pickedMesh && info.pickInfo.pickedMesh) {
+            if (info.pickInfo.pickedMesh) {
                 this.onpick(<PointerEvent>info.event, <PickingInfo>info.pickInfo);
             } else {
                 this.unpick();
@@ -95,11 +94,10 @@ export class MyScene extends LitElement {
     }
 
     _gridMesh!: Mesh;
-    _axes!: AxesViewer;
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
         this.createGrid(this.utils);
-        this._axes = new AxesViewer(this.utils.utilityLayerScene);
+        new AxesViewer(this.utils.utilityLayerScene);
 
         this.initGhost(this.utils);
     }
@@ -158,18 +156,19 @@ export class MyScene extends LitElement {
 
         this._ghost = new GhostBehavior();
         this._ghost.ghostMesh = CreateFrameMesh("ghost.box", {}, uscene);
+        this._ghost.ghostMesh.setEnabled(false);
     }
 
     _picked: Nullable<AbstractMesh> = null;
     onpick(event: PointerEvent, pickinfo: PickingInfo) {
-        console.debug("picked", pickinfo.pickedMesh!.name, pickinfo.pickedMesh, pickinfo.pickedPoint);
+        console.debug("picked", pickinfo.pickedMesh!.name, pickinfo.pickedPoint, pickinfo.pickedMesh);
         assertNonNull(pickinfo.pickedMesh);
+        if (this._picked) this.unpick();
         this._picked = pickinfo.pickedMesh;
         this._ghost.attach(pickinfo.pickedMesh);
     }
 
     unpick() {
-        console.debug("unpicked");
         this._ghost.detach();
         this._picked = null;
     }
