@@ -3,10 +3,10 @@ import { PointerDragBehavior } from "@babylonjs/core/Behaviors/Meshes/pointerDra
 import { BackgroundMaterial } from "@babylonjs/core/Materials";
 import { AbstractMesh, MeshBuilder } from "@babylonjs/core/Meshes";
 
-import { BasicGizmo } from "./gizmo";
+import { BaseBoxGizmo, BaseGizmo } from "./gizmo";
 import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 
-export class MyMovingGizmo extends BasicGizmo {
+export class MyMovingGizmo extends BaseGizmo {
 
     createDragging() {
         const behavior = new PointerDragBehavior({ dragAxis: Vector3.Up() });
@@ -33,20 +33,19 @@ export class MyMovingGizmo extends BasicGizmo {
         console.debug(this.name, "grabbing", this.attachedMesh!.name, point.toString());
     }
 
-    onDrag(point: Vector3, delta: Vector3): void {
+    onDrag(point: Vector3, delta: Vector3, dragged: Vector3): void {
         // console.debug(this.name, "dragging", this.attachedMesh!.name, delta.toString());
-        // this._attachedMesh!.position.addInPlace(delta);
     }
 
-    onDrop(point: Vector3, travelled: Vector3) {
-        console.debug(this.name, "dropping", this.attachedMesh!.name, travelled.toString());
-        this._attachedMesh!.position.addInPlace(travelled); // world/local ???
+    onDrop(point: Vector3, dragged: Vector3) {
+        console.debug(this.name, "dropping", this.attachedMesh!.name, dragged.toString());
+        this._attachedMesh!.position.addInPlace(dragged);
         this.reset();
     }
 }
 
 
-export class MyScalingGizmo extends BasicGizmo {
+export class MyScalingGizmo extends BaseBoxGizmo {
 
     sizelimits = { min: 0.2, max: 2.0 };
 
@@ -71,38 +70,25 @@ export class MyScalingGizmo extends BasicGizmo {
         console.debug(this.name, "attaching", mesh?.name);
     }
 
-    _origBox!: BoundingBox;
-
     onGrab(point: Vector3): void {
         console.debug(this.name, "grabbing", this.attachedMesh!.name, point.toString());
-        this._origBox = this._attachedMesh!.getBoundingInfo().boundingBox;
+        this.grabBox();
     }
 
-    onDrag(point: Vector3, delta: Vector3): void {
+    onDrag(point: Vector3, delta: Vector3, dragged: Vector3): void {
         // console.debug(this.name, "dragging", this.attachedMesh!.name, delta.toString());
-        // this._attachedMesh!.position.addInPlace(delta);
-    }
 
-    onDrop(point: Vector3, travelled: Vector3) {
-        console.debug(this.name, "dropping", this.attachedMesh!.name, travelled.toString());
-        const base = this._origBox.minimumWorld; // fixed bottom
-        let edge = this._origBox.maximumWorld.clone(); // dragging top
-
-        edge.addInPlace(travelled);
+        const base = this.origBox!.minimumWorld;
+        let edge = this.origBox!.maximumWorld.add(dragged);
 
         // clamp
         edge.y = Math.max(base.y + this.sizelimits.min, Math.min(base.y + this.sizelimits.max, edge.y));
 
-        this.updateAttached(base, edge);
+        this.adjustBox(base, edge);
+    }
 
+    onDrop(point: Vector3, dragged: Vector3) {
+        console.debug(this.name, "dropping", this.attachedMesh!.name, dragged.toString());
         this.reset();
     }
-
-    updateAttached(min: Vector3, max: Vector3) {
-        const targBox = new BoundingBox(min, max); // NB: world space only
-        this._attachedMesh!.scaling.multiplyInPlace(targBox.extendSizeWorld).divideInPlace(this._origBox.extendSizeWorld);
-        this._attachedMesh!.setAbsolutePosition(targBox.centerWorld);
-        this._attachedMesh!.computeWorldMatrix();
-    }
 }
-

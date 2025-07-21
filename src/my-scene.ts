@@ -17,8 +17,8 @@ import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRend
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
-import { BasicGizmo } from "./gizmo";
-import { MyMovingGizmo, MyScalingGizmo } from "./mygizmo";
+import { BaseGizmo } from "./gizmo";
+import { MyMovingGizmo, MyScalingGizmo } from "./mygizmos";
 
 
 @customElement("my-scene")
@@ -155,8 +155,9 @@ export class MyScene extends LitElement {
         // mesh.rotate(new Vector3(1, 0, -1), 0.25 * Math.PI);
     }
 
-    _gizmo1!: BasicGizmo;
-    _gizmo2!: BasicGizmo;
+    _gizmo1!: BaseGizmo;
+    _gizmo2!: BaseGizmo;
+    _gizmo3!: BaseGizmo;
     initGizmo() {
         this._gizmo1 = new MyMovingGizmo("movingizmo", this.utils);
         this._gizmo2 = new MyScalingGizmo("scalingizmo", this.utils);

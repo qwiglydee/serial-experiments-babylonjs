@@ -6,8 +6,9 @@ import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRend
 
 import { assertNonNull } from "./utils/asserts";
 import { Observer } from "@babylonjs/core/Misc/observable";
+import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 
-export interface IBasicGizmo {
+export interface IBaseGizmo {
     attachedMesh: Nullable<AbstractMesh>;
     dragBehavior: PointerDragBehavior;
 
@@ -17,8 +18,8 @@ export interface IBasicGizmo {
 
     onAttach(mesh: Nullable<AbstractMesh>): void;
     onGrab(point: Vector3): void;
-    onDrag(point: Vector3, delta: Vector3): void;
-    onDrop(point: Vector3, travelled: Vector3): void;
+    onDrag(point: Vector3, delta: Vector3, dragged: Vector3): void;
+    onDrop(point: Vector3, dragged: Vector3): void;
 }
 
 /**
@@ -27,7 +28,7 @@ export interface IBasicGizmo {
  * Gizmo is abs positioning to center of attached mesh;
  * Handle is local positioned relative to attached dimensions/extent;
  */
-export abstract class BasicGizmo implements IBasicGizmo {
+export abstract class BaseGizmo implements IBaseGizmo {
     name: string;
 
     gizmoLayer: UtilityLayerRenderer;
@@ -58,15 +59,15 @@ export abstract class BasicGizmo implements IBasicGizmo {
         this.dragBehavior.attach(this._handleMesh);
 
         this.dragBehavior.onDragStartObservable.add((info) => {
-            this._travelled = Vector3.Zero();
+            this._dragged = Vector3.Zero();
             this.onGrab(info.dragPlanePoint)
         });
         this.dragBehavior.onDragObservable.add((info) => {
-            this._travelled.addInPlace(info.delta);
-            this.onDrag(info.dragPlanePoint, info.delta);
+            this._dragged.addInPlace(info.delta);
+            this.onDrag(info.dragPlanePoint, info.delta, this._dragged);
         });
         this.dragBehavior.onDragEndObservable.add((info) => {
-            this.onDrop(info.dragPlanePoint, this._travelled)
+            this.onDrop(info.dragPlanePoint, this._dragged)
         });
     }
 
@@ -126,10 +127,36 @@ export abstract class BasicGizmo implements IBasicGizmo {
         this._handleMesh.position.copyFrom(bbox.extendSize.multiply(this._handleRig).multiply(scale))._isDirty;
     }
 
-    _travelled: Vector3 = Vector3.Zero();
+    _dragged: Vector3 = Vector3.Zero();
 
     abstract onAttach(mesh: Nullable<AbstractMesh>): void;
     abstract onGrab(point: Vector3): void;
-    abstract onDrag(point: Vector3, delta: Vector3): void;
-    abstract onDrop(point: Vector3, travelled: Vector3): void;
-} 
+    abstract onDrag(point: Vector3, delta: Vector3, dragged: Vector3): void;
+    abstract onDrop(point: Vector3, dragged: Vector3): void;
+}
+
+/**
+ * Gizmo to manipulate bounding box.
+ * Mesh should be centered and not rotated.
+ */
+export abstract class BaseBoxGizmo extends BaseGizmo {
+    origBox?: BoundingBox;
+    _origScaling: Vector3 = Vector3.Zero();
+
+    grabBox() {
+        const bbox = this._attachedMesh!.getBoundingInfo().boundingBox;
+        this.origBox = new BoundingBox(
+            bbox.minimum,
+            bbox.maximum,
+            bbox.getWorldMatrix()
+        );
+        this._origScaling.copyFrom(this._attachedMesh!.scaling);
+    }
+
+    adjustBox(min: Vector3, max: Vector3) {
+        const targBox = new BoundingBox(min, max);
+        this._attachedMesh!.scaling = this._origScaling!.multiply(targBox.extendSizeWorld).divide(this.origBox!.extendSizeWorld);
+        this._attachedMesh!.setAbsolutePosition(targBox.centerWorld);
+        this._attachedMesh!.computeWorldMatrix();
+    }
+}
