@@ -1,22 +1,25 @@
 import { css, html, LitElement, PropertyValues } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
 
+import { Nullable } from "@babylonjs/core/types";
+import { Color3, Vector3 } from "@babylonjs/core/Maths";
 import { Engine } from "@babylonjs/core/Engines";
 import { Scene } from "@babylonjs/core/scene";
-import "@babylonjs/core/Helpers/sceneHelpers";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
 import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
-import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
-import { Color3, Vector3 } from "@babylonjs/core/Maths";
 import { BackgroundMaterial } from "@babylonjs/core/Materials";
+import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
+import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
+
+import "@babylonjs/core/Helpers/sceneHelpers";
+import "@babylonjs/core/Rendering/outlineRenderer";
+import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
-import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
-import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
+import { BasicGizmo } from "./gizmo";
+import { MyMovingGizmo } from "./mygizmo";
 
-import "@babylonjs/core/Rendering/outlineRenderer";
-import { Nullable } from "@babylonjs/core/types";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -98,6 +101,8 @@ export class MyScene extends LitElement {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
         this.createGrid(this.utils);
         new AxesViewer(this.utils.utilityLayerScene);
+
+        this.initGizmo();
     }
 
     _gridMesh!: Mesh;
@@ -139,15 +144,21 @@ export class MyScene extends LitElement {
         let mesh: Mesh;
 
         mesh = MeshBuilder.CreateBox("box", {});
-        mesh.position = new Vector3(-1, 0.5, -1);
 
         mesh = MeshBuilder.CreateSphere("ball", {});
-        mesh.position = new Vector3(-2, 0.5, 2);
+        mesh.position = new Vector3(-2, 0.75, 2);
+        mesh.scaling = new Vector3(1.5, 1.5, 1.5);
 
         mesh = MeshBuilder.CreateCylinder("cone", { diameterTop: 0 });
-        mesh.position = new Vector3(2, 1, -2);
+        mesh.position = new Vector3(2, 0.5, 2);
+        mesh.scaling = new Vector3(1, 0.5, 1);
+        // mesh.rotate(new Vector3(1, 0, -1), 0.25 * Math.PI);
     }
 
+    _gizmo1!: BasicGizmo;
+    initGizmo() {
+        this._gizmo1 = new MyMovingGizmo("movin-gizmo", this.utils);
+    }
 
     _picked: Nullable<Mesh> = null;
 
@@ -158,9 +169,12 @@ export class MyScene extends LitElement {
         this._picked.renderOutline = true;
         this._picked.outlineColor = Color3.White();
         this._picked.outlineWidth = 0.05;
+
+        this._gizmo1.attachedMesh = this._picked;
     }
 
     unpick() {
+        this._gizmo1.attachedMesh = null;
         if (this._picked) this._picked.renderOutline = false;
         this._picked = null;
     }
