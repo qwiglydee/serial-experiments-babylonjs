@@ -18,7 +18,7 @@ import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
 import { BasicGizmo } from "./gizmo";
-import { MyMovingGizmo } from "./mygizmo";
+import { MyMovingGizmo, MyScalingGizmo } from "./mygizmo";
 
 
 @customElement("my-scene")
@@ -156,8 +156,10 @@ export class MyScene extends LitElement {
     }
 
     _gizmo1!: BasicGizmo;
+    _gizmo2!: BasicGizmo;
     initGizmo() {
-        this._gizmo1 = new MyMovingGizmo("movin-gizmo", this.utils);
+        this._gizmo1 = new MyMovingGizmo("movingizmo", this.utils);
+        this._gizmo2 = new MyScalingGizmo("scalingizmo", this.utils);
     }
 
     _picked: Nullable<Mesh> = null;
@@ -171,10 +173,12 @@ export class MyScene extends LitElement {
         this._picked.outlineWidth = 0.05;
 
         this._gizmo1.attachedMesh = this._picked;
+        this._gizmo2.attachedMesh = this._picked;
     }
 
     unpick() {
         this._gizmo1.attachedMesh = null;
+        this._gizmo2.attachedMesh = null;
         if (this._picked) this._picked.renderOutline = false;
         this._picked = null;
     }
