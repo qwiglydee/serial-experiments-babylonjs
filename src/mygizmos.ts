@@ -9,7 +9,7 @@ import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 export class MyMovingGizmo extends BaseGizmo {
 
     createDragging() {
-        const behavior = new PointerDragBehavior({ dragAxis: Vector3.Up() });
+        const behavior = new PointerDragBehavior({ dragPlaneNormal: Vector3.Up() });
         behavior.moveAttached = true;
         behavior.updateDragPlane = false;
         return behavior;

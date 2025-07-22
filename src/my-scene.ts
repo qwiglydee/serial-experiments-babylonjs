@@ -144,6 +144,7 @@ export class MyScene extends LitElement {
         let mesh: Mesh;
 
         mesh = MeshBuilder.CreateBox("box", {});
+        mesh.position = new Vector3(0, 0.5, 0);
 
         mesh = MeshBuilder.CreateSphere("ball", {});
         mesh.position = new Vector3(-2, 0.75, 2);
