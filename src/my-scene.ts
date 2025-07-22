@@ -4,19 +4,20 @@ import { customElement, property, query } from "lit/decorators.js";
 import { Engine } from "@babylonjs/core/Engines";
 import { Scene } from "@babylonjs/core/scene";
 import "@babylonjs/core/Helpers/sceneHelpers";
+import "@babylonjs/core/Rendering/outlineRenderer";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
 import { AbstractMesh, Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
 import { Color3, Vector3 } from "@babylonjs/core/Maths";
 import { BackgroundMaterial } from "@babylonjs/core/Materials";
 import { AxesViewer } from "@babylonjs/core/Debug";
-
-import { bubbleEvent } from "./utils/events";
 import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
 import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 import { CreateFrameMesh, GhostBehavior } from "./ghost";
-import { assertNonNull } from "./utils/asserts";
 import { Nullable } from "@babylonjs/core/types";
+
+import { assertNonNull } from "./utils/asserts";
+import { bubbleEvent } from "./utils/events";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
