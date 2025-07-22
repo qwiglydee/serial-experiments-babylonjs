@@ -1,23 +1,23 @@
 import { css, html, LitElement, PropertyValues } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
 
-import { Engine } from "@babylonjs/core/Engines";
-import { Scene } from "@babylonjs/core/scene";
-import "@babylonjs/core/Helpers/sceneHelpers";
-import "@babylonjs/core/Rendering/outlineRenderer";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
-import { AbstractMesh, Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
-import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
-import { Color3, Vector3 } from "@babylonjs/core/Maths";
-import { BackgroundMaterial } from "@babylonjs/core/Materials";
-import { AxesViewer } from "@babylonjs/core/Debug";
-import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
 import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
-import { CreateFrameMesh, GhostBehavior } from "./ghost";
+import { AxesViewer } from "@babylonjs/core/Debug";
+import { Engine } from "@babylonjs/core/Engines";
+import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
+import "@babylonjs/core/Helpers/sceneHelpers";
+import { BackgroundMaterial } from "@babylonjs/core/Materials";
+import { Vector3 } from "@babylonjs/core/Maths";
+import { AbstractMesh, Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
+import "@babylonjs/core/Rendering/outlineRenderer";
+import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
+import { Scene } from "@babylonjs/core/scene";
 import { Nullable } from "@babylonjs/core/types";
 
 import { assertNonNull } from "./utils/asserts";
 import { bubbleEvent } from "./utils/events";
+import { CreateFrameMesh, GhostBehavior } from "./ghost";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -101,8 +101,7 @@ export class MyScene extends LitElement {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
         this.createGrid(this.utils);
         new AxesViewer(this.utils.utilityLayerScene);
-
-        this.initGhost(this.utils);
+        this.createGhost(this.utils);
     }
 
     createGrid(layer: UtilityLayerRenderer) {
@@ -143,7 +142,6 @@ export class MyScene extends LitElement {
         let mesh: Mesh;
 
         mesh = MeshBuilder.CreateBox("box", {});
-        mesh.position = new Vector3(-1, 0, -1);
 
         mesh = MeshBuilder.CreateSphere("ball", { diameter: 1.0 });
         mesh.scaling = new Vector3(1.5, 1.5, 1.5);
@@ -153,13 +151,13 @@ export class MyScene extends LitElement {
         mesh.position = new Vector3(2, 0, -2);
     }
 
-    _ghost!: GhostBehavior;
-    initGhost(layer: UtilityLayerRenderer) {
+    _ghostBhv!: GhostBehavior;
+    createGhost(layer: UtilityLayerRenderer) {
         const uscene = layer.utilityLayerScene;
 
-        this._ghost = new GhostBehavior();
-        this._ghost.ghostMesh = CreateFrameMesh("ghost.box", {}, uscene);
-        this._ghost.ghostMesh.setEnabled(false);
+        this._ghostBhv = new GhostBehavior();
+        this._ghostBhv.ghostMesh = CreateFrameMesh("ghost", {}, uscene);
+        this._ghostBhv.ghostMesh.setEnabled(false);
     }
 
     _picked: Nullable<AbstractMesh> = null;
@@ -168,11 +166,11 @@ export class MyScene extends LitElement {
         assertNonNull(pickinfo.pickedMesh);
         if (this._picked) this.unpick();
         this._picked = pickinfo.pickedMesh;
-        this._ghost.attach(pickinfo.pickedMesh);
+        this._ghostBhv.attach(this._picked);
     }
 
     unpick() {
-        this._ghost.detach();
+        this._ghostBhv.detach();
         this._picked = null;
     }
 } 

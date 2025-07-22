@@ -6,6 +6,7 @@ import { Behavior } from "@babylonjs/core/Behaviors";
 import { Nullable } from "@babylonjs/core/types";
 import { assertNonNull } from "./utils/asserts";
 import { Observer } from "@babylonjs/core/Misc/observable";
+import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 
 const BOXPOINTS = [
     new Vector3(0.0, 0.0, 0.0),
@@ -42,49 +43,6 @@ export function CreateFrameMesh(name: string, options: object, scene: Scene): Li
         ],
         ...options
     }, scene);
-}
-
-/**
- * Empty mesh that mimics target bounding box.
- * Places itself at center of bounding box and scales up;
- * 
- * NB: it has to be abstractmesh so it can be passed t gizmos and stuff
- */
-export class BoundingGhost extends AbstractMesh {
-    _extendSize!: Vector3;
-
-    constructor(name: string, scene: Scene, target: AbstractMesh) {
-        super(name, scene);
-        this.mimic(target);
-    }
-
-    mimic(target: AbstractMesh) {
-        const bbox = target.getBoundingInfo().boundingBox
-        this.position = bbox.center;
-        this._extendSize = bbox.extendSize;
-        this.refreshBoundingInfo();
-    }
-
-    get dimensions() {
-        return this._extendSize.scale(2);
-    }
-
-    set dimensions(dim: Vector3) {
-        this._extendSize = dim.scale(0.5);
-        this.refreshBoundingInfo();
-    }
-
-    override refreshBoundingInfo(): AbstractMesh {
-        const min = this.position.add(this._extendSize), max = this.position.add(this._extendSize);
-        this._boundingInfo = new BoundingInfo(min, max);
-        this._boundingInfoIsDirty = false;
-        return this;
-    }
-
-    // fill up AbstractMesh
-    _positions = null;
-    geometry = null;
-    copyVerticesData() { }
 }
 
 /**
