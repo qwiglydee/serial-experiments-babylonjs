@@ -1,16 +1,17 @@
 import { Nullable } from "@babylonjs/core/types";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths";
+import { Vector3 } from "@babylonjs/core/Maths";
 import { AbstractMesh, Mesh, TransformNode } from "@babylonjs/core/Meshes";
 import { PointerDragBehavior } from "@babylonjs/core/Behaviors/Meshes";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
 
 import { assertNonNull } from "./utils/asserts";
-import { Observer } from "@babylonjs/core/Misc/observable";
+import { Observable, Observer } from "@babylonjs/core/Misc/observable";
 import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 
 export interface IBaseGizmo {
     attachedMesh: Nullable<AbstractMesh>;
     dragBehavior: PointerDragBehavior;
+    onChangeObservable: Observable<any>;
 
     createDragging(): PointerDragBehavior;
     createHandle(): Mesh;
@@ -35,6 +36,7 @@ export abstract class BaseGizmo implements IBaseGizmo {
     get gizmoScene() { return this.gizmoLayer.utilityLayerScene };
 
     dragBehavior: PointerDragBehavior;
+    onChangeObservable: Observable<AbstractMesh>;
 
     _root: TransformNode;
     _attachedMesh: Nullable<AbstractMesh> = null;
@@ -69,6 +71,8 @@ export abstract class BaseGizmo implements IBaseGizmo {
         this.dragBehavior.onDragEndObservable.add((info) => {
             this.onDrop(info.dragPlanePoint, this._dragged)
         });
+
+        this.onChangeObservable = new Observable();
     }
 
     get attachedMesh() {
@@ -133,6 +137,10 @@ export abstract class BaseGizmo implements IBaseGizmo {
     abstract onGrab(point: Vector3): void;
     abstract onDrag(point: Vector3, delta: Vector3, dragged: Vector3): void;
     abstract onDrop(point: Vector3, dragged: Vector3): void;
+
+    _notifyChanges() {
+        this.onChangeObservable.notifyObservers(this._attachedMesh!);
+    }
 }
 
 /**
