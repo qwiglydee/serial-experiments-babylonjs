@@ -7,100 +7,105 @@ import { Scene } from "@babylonjs/core/scene";
 import { ShapeFactory, ShapeParams } from "./factory";
 import { Nullable } from "@babylonjs/core/types";
 import { assertNonNull } from "./utils/assert";
+import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 
 
-export interface GroundConstraints {
-    radius: number;
+export interface IFactory {
+    createGhost(scene: Scene): Mesh;
+    createEntity(scene: Scene): Mesh;
 }
 
-export interface IAimingGizmo {
-    factory: Nullable<ShapeFactory>;
-    constraints: Nullable<GroundConstraints>;
+export interface IDroppinGround {
+    plane: Plane;
+    bounds: BoundingBox;
 
-    /** create picking ray and check ground intersection and constraints, `PickingInfo.hit` == validness */
     pick(event: { clientX: number, clientY: number }): PickingInfo;
-
-    /** initialize and start dragging gizmo */
-    grab(pick: PickingInfo): void;
-
-    /** move gizmo or hide when invalid */
-    drag(pick: PickingInfo): void;
-
-    /** stop dragging, create and position new shape */
-    drop(pick: PickingInfo): Mesh | null;
-
-    /** cancel dragging */
-    cancel(): void;
 }
 
-export class AimingGizmo implements IAimingGizmo {
-    layer: UtilityLayerRenderer;
+export interface IDroppinGizmo<IFactory> {
+    attachedFactory: Nullable<IFactory>;
+
+    drag(pick: PickingInfo): void;
+    drop(pick: PickingInfo): Mesh | null;
+}
+
+export class DroppinGround implements IDroppinGround {
+    plane: Plane;
+    bounds: BoundingBox;
     scene: Scene;
-    factory: Nullable<ShapeFactory> = null;
-    constraints: Nullable<GroundConstraints> = null;
-    groundplane: Plane;
+    _rect: DOMRect;
 
-    _canvas: HTMLElement;
-    _ghostMesh: Nullable<Mesh> = null;
-
-    constructor(layer: UtilityLayerRenderer) {
-        this.layer = layer;
-        this.scene = layer.originalScene;
-        this.groundplane = Plane.FromPositionAndNormal(Vector3.Zero(), Vector3.Up());
-
-        this._canvas = <HTMLCanvasElement>this.scene.getEngine().getRenderingCanvas();
-    }
-
-    _eventCoords(event: { clientX: number, clientY: number }) {
-        const rect = this._canvas.getBoundingClientRect();
-        return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    constructor(scene: Scene, plane: Plane, groundsize: number) {
+        this.scene = scene;
+        this.plane = plane;
+        this.bounds = new BoundingBox(
+            new Vector3(-0.5 * groundsize, -0.5, -0.5 * groundsize),
+            new Vector3(+0.5 * groundsize, +0.5, +0.5 * groundsize),
+        )
+        this._rect = <DOMRect>this.scene.getEngine().getRenderingCanvasClientRect(); // should be updated on resize
     }
 
     _eventRay(event: { clientX: number, clientY: number }) {
-        let { x, y } = this._eventCoords(event);
-        return this.scene.createPickingRay(x, y, null, this.scene.activeCamera);
+        const screenX = event.clientX - this._rect.left;
+        const screenY = event.clientY - this._rect.top;
+        return this.scene.createPickingRay(screenX, screenY, null, this.scene.activeCamera);
     }
 
     pick(event: { clientX: number, clientY: number }): PickingInfo {
-        assertNonNull(this.constraints);
         let pick = new PickingInfo();
 
         pick.ray = this._eventRay(event);
-        let dist: number | null = pick.ray.intersectsPlane(this.groundplane);
-        if (!dist) return pick;
+        let dist: number | null = pick.ray.intersectsPlane(this.plane);
 
-        pick.pickedPoint = pick.ray.origin.add(pick.ray.direction.scale(dist));
-        let radius = Vector3.Distance(Vector3.Zero(), pick.pickedPoint);
-        if (this.constraints && radius > this.constraints.radius) return pick;
-
-        pick.hit = true;
+        if (dist) {
+            pick.pickedPoint = pick.ray.origin.add(pick.ray.direction.scale(dist));
+            pick.hit = this.bounds.intersectsPoint(pick.pickedPoint);
+        }
 
         return pick;
     }
+}
 
-    grab(pick: PickingInfo) {
-        assertNonNull(this.factory);
-        this._ghostMesh = this.factory.createGhost();
-        this.drag(pick);
+export class DroppinGizmo implements IDroppinGizmo<ShapeFactory> {
+    gizmoLayer: UtilityLayerRenderer;
+
+    _ghostMesh: Nullable<Mesh> = null;
+    _factory: Nullable<ShapeFactory> = null;
+
+    constructor(layer: UtilityLayerRenderer) {
+        this.gizmoLayer = layer;
+    }
+
+    get attachedFactory(): Nullable<ShapeFactory> {
+        return this._factory;
+    }
+
+    set attachedFactory(factory: ShapeFactory | null) {
+        this._factory = factory;
+        if (factory) this._attach(); else this._detach();
+    }
+
+    _attach() {
+        this._ghostMesh = this._factory!.createGhost(this.gizmoLayer.utilityLayerScene);
+        this._ghostMesh.setEnabled(false);
+    }
+
+    _detach() {
+        if (this._ghostMesh) { this._ghostMesh.dispose(); this._ghostMesh = null; }
     }
 
     drag(pick: PickingInfo) {
-        if (!this._ghostMesh) return;
+        assertNonNull(this._ghostMesh);
         this._ghostMesh.setEnabled(pick.hit);
-        if (pick.hit) this._ghostMesh.position.copyFrom(pick.pickedPoint!);
+        if (pick.hit && pick.pickedPoint) this._ghostMesh.position.copyFrom(pick.pickedPoint);
     }
 
     drop(pick: PickingInfo): Mesh | null {
-        assertNonNull(this.factory);
         if (!pick.hit) return null;
-        const mesh = this.factory.createEntity();
+        assertNonNull(this._factory);
+        const mesh = this._factory.createEntity(this.gizmoLayer.originalScene);
         mesh.position.copyFrom(pick.pickedPoint!);
-        this.cancel();
+        this._detach();
         return mesh;
-    }
-
-    cancel() {
-        this._ghostMesh?.dispose();
-        this._ghostMesh = null;
     }
 }

@@ -8,7 +8,7 @@ import { Engine } from "@babylonjs/core/Engines";
 import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
 import "@babylonjs/core/Helpers/sceneHelpers";
 import { BackgroundMaterial } from "@babylonjs/core/Materials";
-import { Color3, Vector3 } from "@babylonjs/core/Maths";
+import { Color3, Plane, Vector3 } from "@babylonjs/core/Maths";
 import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
 import "@babylonjs/core/Rendering/outlineRenderer";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
@@ -18,7 +18,7 @@ import { consume } from "@lit/context";
 
 import { draggingContext } from "./context";
 import { ShapeFactory, ShapeParams } from "./factory";
-import { AimingGizmo } from "./gizmo";
+import { DroppinGizmo, DroppinGround } from "./gizmo";
 import { assertNonNull } from "./utils/assert";
 import { bubbleEvent } from "./utils/events";
 
@@ -52,7 +52,6 @@ export class MyScene extends LitElement {
         super.update(changes); // NB: refreshes html
         if (this.hasUpdated) {
             if (changes.has('groundsize')) this.updateGround();
-            if (changes.has('draggingData')) this.ondragging();
         }
     }
 
@@ -103,13 +102,16 @@ export class MyScene extends LitElement {
     }
 
     utils!: UtilityLayerRenderer;
-    gizmo!: AimingGizmo;
+    gizmo!: DroppinGizmo;
+    ground!: DroppinGround;
+    factory: Nullable<ShapeFactory> = null;
 
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
         this.createGrid(this.utils);
+        this.createGizmo(this.utils);
         new AxesViewer(this.utils.utilityLayerScene);
-        this.gizmo = new AimingGizmo(this.utils);
+
     }
 
     _gridMesh!: Mesh;
@@ -145,6 +147,7 @@ export class MyScene extends LitElement {
     updateGround() {
         this._gridMesh.dispose();
         this.createGrid(this.utils);
+        this.ground = new DroppinGround(this.ground.scene, this.ground.plane, this.groundsize)
     }
 
     createStuff() {
@@ -160,13 +163,21 @@ export class MyScene extends LitElement {
         mesh.position = new Vector3(2, 1, -2);
     }
 
+    createGizmo(layer: UtilityLayerRenderer) {
+        this.ground = new DroppinGround(
+            layer.utilityLayerScene,
+            Plane.FromPositionAndNormal(Vector3.Zero(), Vector3.Up()),
+            this.groundsize
+        )
+        this.gizmo = new DroppinGizmo(layer);
+    }
 
     _picked: Nullable<Mesh> = null;
 
     onpick(event: PointerEvent, pickinfo: PickingInfo) {
         if (this._picked) this.unpick();
         this._picked = <Mesh>pickinfo.pickedMesh!;
-        console.debug("picked", this._picked.name, pickinfo.pickedPoint);
+        console.debug(this.tagName, "picked", this._picked.name, pickinfo.pickedPoint?.toString());
         this._picked.renderOutline = true;
         this._picked.outlineColor = Color3.White();
         this._picked.outlineWidth = 0.05;
@@ -177,45 +188,33 @@ export class MyScene extends LitElement {
         this._picked = null;
     }
 
-    ondragging = () => {
-        // this.draggingData updated
-        console.debug("myscene.draggingData=", this.draggingData);
-        if (this.draggingData) {
-            this.gizmo.factory = new ShapeFactory(this.scene, this.draggingData!);
-            this.gizmo.constraints = { radius: 0.5 * this.groundsize };
-        } else {
-            this.gizmo.cancel();
-            this.gizmo.factory = null;
-            this.gizmo.constraints = null;
-        }
-    }
-
     override ondragenter = (event: DragEvent) => {
-        event.preventDefault();
         assertNonNull(this.draggingData);
-        const pick = this.gizmo.pick(event);
-        console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
-        this.gizmo.grab(pick);
+        event.preventDefault();
+        const pick = this.ground.pick(event);
+        console.debug(this.tagName, event.type, pick.hit, pick.pickedPoint?.toString());
+        this.gizmo.attachedFactory = new ShapeFactory(this.draggingData);
+        this.gizmo.drag(pick);
     }
 
     override ondragleave = (event: DragEvent) => {
-        console.debug("myscene", event.type);
-        this.gizmo.cancel();
+        console.debug(this.tagName, event.type);
+        this.gizmo.attachedFactory = null;
     };
 
     override ondragover = (event: DragEvent) => {
         event.preventDefault();
-        const pick = this.gizmo.pick(event);
-        // console.debug("myscene", event.type, pick.hit, pick.pickedPoint);
+        if (this.gizmo.attachedFactory === null) return;
+        const pick = this.ground.pick(event);
         this.gizmo.drag(pick);
     }
 
     override ondrop = (event: DragEvent) => {
         event.preventDefault();
-        const pick = this.gizmo.pick(event);
-        console.debug("myscene", event.type, pick.hit, pick.pickedPoint, this.draggingData);
+        if (this.gizmo.attachedFactory === null) return;
+        const pick = this.ground.pick(event);
+        console.debug(this.tagName, event.type, pick.hit, pick.pickedPoint?.toString());
         if (!pick.hit) return;
         this.gizmo.drop(pick);
     }
-
 }
