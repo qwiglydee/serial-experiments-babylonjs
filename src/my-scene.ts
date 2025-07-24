@@ -1,24 +1,26 @@
 import { css, html, LitElement, PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 
-import { Engine } from "@babylonjs/core/Engines";
-import { Scene } from "@babylonjs/core/scene";
-import "@babylonjs/core/Helpers/sceneHelpers";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
-import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
-import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
-import { Color3, Plane, Vector3 } from "@babylonjs/core/Maths";
-import { BackgroundMaterial, StandardMaterial } from "@babylonjs/core/Materials";
-import { PickingInfo } from "@babylonjs/core/Collisions";
+import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 import { AxesViewer } from "@babylonjs/core/Debug";
-
-import { bubbleEvent } from "./utils/events";
-import { ShapeParams, ShapeFactory } from "./factory";
-import { AimingGizmo, GroundConstraints } from "./gizmo";
+import { Engine } from "@babylonjs/core/Engines";
+import { KeyboardEventTypes, KeyboardInfo, PointerEventTypes, PointerInfo } from "@babylonjs/core/Events";
+import "@babylonjs/core/Helpers/sceneHelpers";
+import { BackgroundMaterial } from "@babylonjs/core/Materials";
+import { Color3, Vector3 } from "@babylonjs/core/Maths";
+import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
+import "@babylonjs/core/Rendering/outlineRenderer";
+import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
+import { Scene } from "@babylonjs/core/scene";
+import { Nullable } from "@babylonjs/core/types";
 import { consume } from "@lit/context";
+
 import { draggingContext } from "./context";
-import { Nullable } from "@babylonjs/core";
+import { ShapeFactory, ShapeParams } from "./factory";
+import { AimingGizmo } from "./gizmo";
 import { assertNonNull } from "./utils/assert";
+import { bubbleEvent } from "./utils/events";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -77,6 +79,27 @@ export class MyScene extends LitElement {
         this.scene.createDefaultLight(true);
         let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, this.groundsize, Vector3.Zero(), this.scene);
         this.scene.switchActiveCamera(camera, true);
+
+        this.scene.onPointerObservable.add((info: PointerInfo) => {
+            if (info.type != PointerEventTypes.POINTERTAP || !info.pickInfo) return;
+            if (info.pickInfo.pickedMesh) {
+                this.onpick(<PointerEvent>info.event, <PickingInfo>info.pickInfo);
+            } else {
+                this.unpick();
+            }
+        });
+
+        this.scene.onKeyboardObservable.add((info: KeyboardInfo) => {
+            if (info.type == KeyboardEventTypes.KEYDOWN && info.event.code == 'Space' && this._picked) {
+                this._picked.position = new Vector3(
+                    (Math.random() - 0.5) * this.groundsize,
+                    0,
+                    (Math.random() - 0.5) * this.groundsize,
+                )
+                this._picked.scaling = Vector3.One().scale(Math.random() + 0.5);
+                this._picked.computeWorldMatrix();
+            }
+        })
     }
 
     utils!: UtilityLayerRenderer;
@@ -85,7 +108,7 @@ export class MyScene extends LitElement {
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
         this.createGrid(this.utils);
-        new AxesViewer(this.scene);
+        new AxesViewer(this.utils.utilityLayerScene);
         this.gizmo = new AimingGizmo(this.utils);
     }
 
@@ -133,8 +156,25 @@ export class MyScene extends LitElement {
         mesh = MeshBuilder.CreateSphere("ball", {});
         mesh.position = new Vector3(-2, 0.5, 2);
 
-        mesh = MeshBuilder.CreateCylinder("ball", { height: 1, diameterTop: 0 });
-        mesh.position = new Vector3(2, 0.5, -2);
+        mesh = MeshBuilder.CreateCylinder("cone", { diameterTop: 0 });
+        mesh.position = new Vector3(2, 1, -2);
+    }
+
+
+    _picked: Nullable<Mesh> = null;
+
+    onpick(event: PointerEvent, pickinfo: PickingInfo) {
+        if (this._picked) this.unpick();
+        this._picked = <Mesh>pickinfo.pickedMesh!;
+        console.debug("picked", this._picked.name, pickinfo.pickedPoint);
+        this._picked.renderOutline = true;
+        this._picked.outlineColor = Color3.White();
+        this._picked.outlineWidth = 0.05;
+    }
+
+    unpick() {
+        if (this._picked) this._picked.renderOutline = false;
+        this._picked = null;
     }
 
     ondragging = () => {

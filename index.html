@@ -46,6 +46,15 @@
     </style>
     <script src="build/utils/fullscreen.js"></script>
     <script type="module" src="build/index.js"></script>
+    <script type="module">
+        import { Vector3, Color3 } from "@babylonjs/core/Maths";
+        window.addEventListener('load', function () {
+            window.my = document.querySelector("my-scene");
+            window.V3 = Vector3;
+            window.C3 = Color3;
+        });
+    </script>
+
 </head>
 
 <body>
