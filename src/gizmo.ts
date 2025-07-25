@@ -1,5 +1,5 @@
 import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
-import { StandardMaterial } from "@babylonjs/core/Materials";
+import { BackgroundMaterial, StandardMaterial } from "@babylonjs/core/Materials";
 import { Color3, Plane, Vector2, Vector3 } from "@babylonjs/core/Maths/math";
 import { Mesh, MeshBuilder } from "@babylonjs/core/Meshes";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
@@ -8,6 +8,7 @@ import { ShapeFactory, ShapeParams } from "./factory";
 import { Nullable } from "@babylonjs/core/types";
 import { assertNonNull } from "./utils/assert";
 import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
+import { IDroppinGizmo, IDroppinGround } from "./interfaces";
 
 
 export interface IFactory {
@@ -15,24 +16,13 @@ export interface IFactory {
     createEntity(scene: Scene): Mesh;
 }
 
-export interface IDroppinGround {
-    plane: Plane;
-    bounds: BoundingBox;
-
-    pick(event: { clientX: number, clientY: number }): PickingInfo;
-}
-
-export interface IDroppinGizmo<IFactory> {
-    attachedFactory: Nullable<IFactory>;
-
-    drag(pick: PickingInfo): void;
-    drop(pick: PickingInfo): Mesh | null;
-}
 
 export class DroppinGround implements IDroppinGround {
     plane: Plane;
     bounds: BoundingBox;
     scene: Scene;
+    picked: Nullable<PickingInfo> = null;
+
     _rect: DOMRect;
 
     constructor(scene: Scene, plane: Plane, groundsize: number) {
@@ -42,28 +32,53 @@ export class DroppinGround implements IDroppinGround {
             new Vector3(-0.5 * groundsize, -0.5, -0.5 * groundsize),
             new Vector3(+0.5 * groundsize, +0.5, +0.5 * groundsize),
         )
-        this._rect = <DOMRect>this.scene.getEngine().getRenderingCanvasClientRect(); // should be updated on resize
+        this._rect = this.resize();
+    }
+
+    resize(): DOMRect {
+        this._rect = <DOMRect>this.scene.getEngine().getRenderingCanvasClientRect();
+        return this._rect;
     }
 
     _eventRay(event: { clientX: number, clientY: number }) {
+        // NB: no check for OOB
         const screenX = event.clientX - this._rect.left;
         const screenY = event.clientY - this._rect.top;
         return this.scene.createPickingRay(screenX, screenY, null, this.scene.activeCamera);
     }
 
-    pick(event: { clientX: number, clientY: number }): PickingInfo {
-        let pick = new PickingInfo();
+    pickEvent(event: { clientX: number, clientY: number }) {
+        this.picked = new PickingInfo();
+        let dist: number | null = null;
 
-        pick.ray = this._eventRay(event);
-        let dist: number | null = pick.ray.intersectsPlane(this.plane);
+        this.picked.ray = this._eventRay(event);
 
-        if (dist) {
-            pick.pickedPoint = pick.ray.origin.add(pick.ray.direction.scale(dist));
-            pick.hit = this.bounds.intersectsPoint(pick.pickedPoint);
+        if (this.picked.ray) {
+            dist = this.picked.ray.intersectsPlane(this.plane);
+            this.picked.pickedPoint = dist ? this.picked.ray!.origin.add(this.picked.ray!.direction.scale(dist)) : null;
         }
 
-        return pick;
+        if (this.picked.pickedPoint) {
+            this.picked.hit = this.bounds.intersectsPoint(this.picked.pickedPoint);
+        }
+
+        this.hit = this.picked.hit;
     }
+
+    _hit: Nullable<boolean> = null;
+    get hit(): Nullable<boolean> {
+        return this._hit;
+    }
+
+    set hit(val: boolean) {
+        if (val && !this._hit) this.onpickenter(this.picked!);
+        if (!val && this._hit) this.onpickleave(this.picked!);
+        this._hit = val;
+    }
+
+    onpickenter = (pick: PickingInfo) => { };
+    onpickleave = (pick: PickingInfo) => { };
+
 }
 
 export class DroppinGizmo implements IDroppinGizmo<ShapeFactory> {
@@ -97,12 +112,13 @@ export class DroppinGizmo implements IDroppinGizmo<ShapeFactory> {
     drag(pick: PickingInfo) {
         assertNonNull(this._ghostMesh);
         this._ghostMesh.setEnabled(pick.hit);
-        if (pick.hit && pick.pickedPoint) this._ghostMesh.position.copyFrom(pick.pickedPoint);
+        if (!pick.hit || !pick.pickedPoint) return;
+        this._ghostMesh.position.copyFrom(pick.pickedPoint);
     }
 
     drop(pick: PickingInfo): Mesh | null {
-        if (!pick.hit) return null;
         assertNonNull(this._factory);
+        if (!pick.hit || !pick.pickedPoint) return null;
         const mesh = this._factory.createEntity(this.gizmoLayer.originalScene);
         mesh.position.copyFrom(pick.pickedPoint!);
         this._detach();

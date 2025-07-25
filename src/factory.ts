@@ -39,6 +39,7 @@ export class ShapeFactory {
         const mesh = this.createMesh(scene);
         mesh.material = new BackgroundMaterial("ghost", scene);
         mesh.material.wireframe = true;
+        mesh.material.alpha = 0.125;
         return mesh;
     }
 }

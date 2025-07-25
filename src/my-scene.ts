@@ -21,15 +21,17 @@ import { ShapeFactory, ShapeParams } from "./factory";
 import { DroppinGizmo, DroppinGround } from "./gizmo";
 import { assertNonNull } from "./utils/assert";
 import { bubbleEvent } from "./utils/events";
+import { ITargetableElement } from "./interfaces";
+
 
 @customElement("my-scene")
-export class MyScene extends LitElement {
+export class MyScene extends LitElement implements ITargetableElement<ShapeParams> {
     @property({ type: Number })
     groundsize: number = 8;
 
     @consume({ context: draggingContext, subscribe: true })
     @state()
-    draggingData: Nullable<ShapeParams> = null;
+    dragdata: Nullable<ShapeParams> = null;
 
     static override styles = css`
         :host {
@@ -49,9 +51,13 @@ export class MyScene extends LitElement {
     }
 
     override update(changes: PropertyValues) {
-        super.update(changes); // NB: refreshes html
+        super.update(changes);
         if (this.hasUpdated) {
             if (changes.has('groundsize')) this.updateGround();
+            if (changes.has('dragdata')) {
+                if (this.dragdata) this._ondragstart(this.dragdata);
+                else this._ondragend();
+            }
         }
     }
 
@@ -102,22 +108,21 @@ export class MyScene extends LitElement {
     }
 
     utils!: UtilityLayerRenderer;
+    utilScene!: Scene;
     gizmo!: DroppinGizmo;
-    ground!: DroppinGround;
-    factory: Nullable<ShapeFactory> = null;
+    ground: DroppinGround | null = null;
 
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
-        this.createGrid(this.utils);
-        this.createGizmo(this.utils);
-        new AxesViewer(this.utils.utilityLayerScene);
-
+        this.utilScene = this.utils.utilityLayerScene;
+        this.createGrid();
+        this.createGizmo();
+        new AxesViewer(this.utilScene);
     }
 
     _gridMesh!: Mesh;
-    createGrid(layer: UtilityLayerRenderer) {
-        const scene = layer.utilityLayerScene;
-
+    createGrid() {
+        const scene = this.utilScene;
         this._gridMesh = new Mesh("grid");
         this._gridMesh.scaling.x = 0.125;
         this._gridMesh.scaling.z = 0.125;
@@ -146,8 +151,7 @@ export class MyScene extends LitElement {
 
     updateGround() {
         this._gridMesh.dispose();
-        this.createGrid(this.utils);
-        this.ground = new DroppinGround(this.ground.scene, this.ground.plane, this.groundsize)
+        this.createGrid();
     }
 
     createStuff() {
@@ -163,13 +167,8 @@ export class MyScene extends LitElement {
         mesh.position = new Vector3(2, 1, -2);
     }
 
-    createGizmo(layer: UtilityLayerRenderer) {
-        this.ground = new DroppinGround(
-            layer.utilityLayerScene,
-            Plane.FromPositionAndNormal(Vector3.Zero(), Vector3.Up()),
-            this.groundsize
-        )
-        this.gizmo = new DroppinGizmo(layer);
+    createGizmo() {
+        this.gizmo = new DroppinGizmo(this.utils);
     }
 
     _picked: Nullable<Mesh> = null;
@@ -188,33 +187,76 @@ export class MyScene extends LitElement {
         this._picked = null;
     }
 
+    _ondragstart = (data: ShapeParams) => {
+        this.ground = new DroppinGround(
+            this.utilScene,
+            Plane.FromPositionAndNormal(Vector3.Zero(), Vector3.Up()),
+            this.groundsize
+        )
+        this.ground.onpickenter = this.onpickenter;
+        this.ground.onpickleave = this.onpickleave;
+
+        // this.gizmo.constraints = {}; // TODO something 
+        this.gizmo.attachedFactory = null;
+        console.debug(this.tagName, "_dragstart", this.ground.hit)
+    }
+
+    _ondragend = () => {
+        console.debug(this.tagName, "_dragend", this.ground?.hit)
+        this.ground = null;
+        this.gizmo.attachedFactory = null
+    }
+
     override ondragenter = (event: DragEvent) => {
-        assertNonNull(this.draggingData);
         event.preventDefault();
-        const pick = this.ground.pick(event);
-        console.debug(this.tagName, event.type, pick.hit, pick.pickedPoint?.toString());
-        this.gizmo.attachedFactory = new ShapeFactory(this.draggingData);
-        this.gizmo.drag(pick);
+        if (!this.dragdata) return;
+        assertNonNull(this.ground);
+        console.debug(this.tagName, event.type, this.ground.hit);
+        this.ground.pickEvent(event);
     }
 
     override ondragleave = (event: DragEvent) => {
-        console.debug(this.tagName, event.type);
+        event.preventDefault();
+        if (!this.dragdata) return;
+        assertNonNull(this.ground);
+        console.debug(this.tagName, event.type, this.ground.hit);
+        this.ground.hit = false;
+    }
+
+    onpickenter = (pick: PickingInfo) => {
+        console.debug(this.tagName, "pickenter", pick.hit);
+        this.gizmo.attachedFactory = new ShapeFactory(this.dragdata!);
+        this.gizmo.drag(pick);
+    }
+
+    onpickleave = (pick: PickingInfo) => {
+        console.debug(this.tagName, "pickleave", pick.hit);
         this.gizmo.attachedFactory = null;
-    };
+    }
 
     override ondragover = (event: DragEvent) => {
         event.preventDefault();
-        if (this.gizmo.attachedFactory === null) return;
-        const pick = this.ground.pick(event);
-        this.gizmo.drag(pick);
+        if (!this.dragdata) return;
+        assertNonNull(this.ground);
+        this.ground.pickEvent(event);
+        if (this.ground.hit) this.onpickdrag(this.ground.picked!);
     }
 
     override ondrop = (event: DragEvent) => {
         event.preventDefault();
-        if (this.gizmo.attachedFactory === null) return;
-        const pick = this.ground.pick(event);
-        console.debug(this.tagName, event.type, pick.hit, pick.pickedPoint?.toString());
-        if (!pick.hit) return;
-        this.gizmo.drop(pick);
+        if (!this.dragdata) return;
+        assertNonNull(this.ground);
+        this.ground.pickEvent(event);
+        if (this.ground.hit) this.onpickdrop(this.ground.picked!);
+    }
+
+    onpickdrag = (picked: PickingInfo) => {
+        this.gizmo.drag(picked)
+    }
+
+    /** (grounded) dropping ray on the ground */
+    onpickdrop = (picked: PickingInfo) => {
+        console.debug(this.tagName, "pickdrop", picked.hit);
+        this.gizmo.drop(picked);
     }
 }

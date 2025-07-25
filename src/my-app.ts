@@ -37,12 +37,10 @@ export class MyApp extends LitElement {
 
     override ondragstart = (event: DragEvent) => {
         this.draggingData = JSON.parse(event.dataTransfer!.getData('text/plain'));
-        console.debug("app", event.type, this.draggingData);
     }
 
     override ondragend = (event: DragEvent) => {
         this.draggingData = null;
-        console.debug("app", event.type);
     }
 
 } 
