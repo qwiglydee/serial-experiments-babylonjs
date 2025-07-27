@@ -13,6 +13,8 @@ import { AxesViewer } from "@babylonjs/core/Debug";
 
 import { bubbleEvent } from "./utils/events";
 import { HemisphericLight } from "@babylonjs/core/Lights";
+import { Nullable } from "@babylonjs/core";
+import { addSphericalPanningCameraToScene } from "./camera";
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -67,9 +69,12 @@ export class MyScene extends LitElement {
 
         this.scene.createDefaultEnvironment({ createGround: false });
         this.createLights();
-        let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, 0.5 * this.groundsize, Vector3.Zero(), this.scene);
-        this.scene.switchActiveCamera(camera, true);
 
+        // let camera = new ArcRotateCamera("camera", .375 * Math.PI, .375 * Math.PI, 0.5 * this.groundsize, Vector3.Zero(), this.scene);
+        // this.scene.switchActiveCamera(camera, true);
+
+        addSphericalPanningCameraToScene(this.scene, this.engine.getRenderingCanvas()!);
+        this.scene.activeCamera!.position = new Vector3(0.5 * this.groundsize, 1.5, 0.5 * this.groundsize);
     }
 
     initUtils() {
