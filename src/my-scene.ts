@@ -18,7 +18,8 @@ import { consume } from "@lit/context";
 
 import { draggingContext } from "./context";
 import { ShapeFactory, ShapeParams } from "./factory";
-import { DroppinGizmo, DroppinGround } from "./gizmo";
+import { DroppinGizmo } from "./gizmo";
+import { DroppinGround } from "./ground";
 import { assertNonNull } from "./utils/assert";
 import { bubbleEvent } from "./utils/events";
 import { ITargetableElement } from "./interfaces";
