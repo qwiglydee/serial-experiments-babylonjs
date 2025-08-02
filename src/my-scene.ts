@@ -88,12 +88,9 @@ export class MyScene extends LitElement {
 
         this.scene.onKeyboardObservable.add((info: KeyboardInfo) => {
             if (info.type == KeyboardEventTypes.KEYDOWN && info.event.code == 'Space' && this._picked) {
-                this._picked.position = new Vector3(
-                    (Math.random() - 0.5) * this.groundsize,
-                    0,
-                    (Math.random() - 0.5) * this.groundsize,
-                )
-                this._picked.scaling = Vector3.One().scale(Math.random() + 0.5);
+                this._picked.position = new Vector3((Math.random() - 0.5) * this.groundsize, 0.5, (Math.random() - 0.5) * this.groundsize);
+                this._picked.scaling = new Vector3(Math.random() * 1.5 + 0.5, Math.random() * 1.5 + 0.5, Math.random() * 1.5 + 0.5);
+                this._picked.rotation = new Vector3((Math.random() - 0.5) * Math.PI * 0.5, (Math.random() - 0.5) * Math.PI * 0.5, (Math.random() - 0.5) * Math.PI * 0.5);
                 this._picked.computeWorldMatrix();
             }
         })
