@@ -18,10 +18,13 @@ import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 import "@babylonjs/core/Rendering/outlineRenderer";
 import { Nullable } from "@babylonjs/core/types";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
-import { Anchor, Bridge } from "./annotations";
+import { Callout, Bridge, AnnotationGizmoBase } from "./annotations";
+import { assertNonNull } from "./utils/asserts";
+import { Observer } from "@babylonjs/core/Misc/observable";
+import { applyStyles } from "./utils/styles";
 
 const STYLES = {
-    anchor: {
+    callout: {
         width: "8px",
         height: "8px",
         color: "#FFFFFF",
@@ -32,7 +35,7 @@ const STYLES = {
             lineWidth: 3,
             color: "#FFFFFF",
         },
-        pill: {
+        tag: {
             widthInPixels: 32,
             heightInPixels: 20,
             cornerRadius: 10,
@@ -50,11 +53,48 @@ const STYLES = {
     offset: 128
 }
 
-function applyStyles(something: any, styles: any) {
-    for(let prop in styles) {
-        something[prop] = styles[prop];
+class MyAnnotationGizmo extends AnnotationGizmoBase {
+    
+    constructor(scene: Scene, gui: AdvancedDynamicTexture) {
+        super(scene, gui);
+
+        this.anchors = {
+            tc: new TransformNode("anchor-tc", this.scene),
+            bc: new TransformNode("anchor-bc", this.scene),
+        }
+
+        this.callouts = {
+            t: new Callout("callout-t"),
+            b: new Callout("callout-b"),
+        };
+
+        this.bridges = {
+            h: new Bridge("bridge-h")
+        }
+
+        this._initStyles(STYLES);
+        this._addControls();
+
+        this.bridges.h.anchor1 = this.callouts.t;
+        this.bridges.h.anchor2 = this.callouts.b;
+        this.callouts.t.linkWithMesh(this.anchors.tc);
+        this.callouts.b.linkWithMesh(this.anchors.bc);
+        this.callouts.t.linkOffsetX = STYLES.offset;
+        this.callouts.b.linkOffsetX = STYLES.offset;
+    }
+
+    _update() {
+        assertNonNull(this._attachedMesh);
+        const bbox = this._attachedMesh.getBoundingInfo().boundingBox;
+
+        // NB: local coords
+        this.anchors.tc.position = new Vector3(bbox.center.x, bbox.maximum.y, bbox.center.z);
+        this.anchors.bc.position = new Vector3(bbox.center.x, bbox.minimum.y, bbox.center.z);
+        // NB: world, unrotated
+        this.bridges.h.label.text = bbox.extendSizeWorld.y.toFixed(2);
     }
 }
+
 
 
 @customElement("my-scene")
@@ -80,7 +120,7 @@ export class MyScene extends LitElement {
     scene!: Scene;
     utils!: UtilityLayerRenderer;
     gui!: AdvancedDynamicTexture;
-
+    
     override render() {
         return html`<canvas></canvas>`;
     }
@@ -142,76 +182,10 @@ export class MyScene extends LitElement {
         new AxesViewer(this.utils.utilityLayerScene);
     }
 
-    _anchorNodes: { [key: string]: TransformNode } = {};
-    _anchors: { [key: string]: Anchor } = {};
-    _bridges: { [key: string]: Bridge } = {};
+    _anngizmo!: MyAnnotationGizmo;
     initGUI() {
         this.gui = AdvancedDynamicTexture.CreateFullscreenUI("UI");
-
-        this._anchorNodes = {
-            t: new TransformNode("anchor-t"),
-            b: new TransformNode("anchor-b"),
-            l: new TransformNode("anchor-l"),
-            r: new TransformNode("anchor-r"),
-        }
-
-        this._anchors.h1 = new Anchor("anchor-h1");
-        applyStyles(this._anchors.h1, STYLES.anchor);
-        this.gui.addControl(this._anchors.h1);
-        this._anchors.h1.linkWithMesh(this._anchorNodes.t);
-        this._anchors.h1.linkOffsetX = STYLES.offset;
-
-        this._anchors.h2 = new Anchor("anchor-h2");
-        applyStyles(this._anchors.h2, STYLES.anchor);
-        this.gui.addControl(this._anchors.h2);
-        this._anchors.h2.linkWithMesh(this._anchorNodes.b);
-        this._anchors.h2.linkOffsetX = STYLES.offset;
-
-        this._bridges.h = new Bridge("bridge-h");
-        this.gui.addControl(this._bridges.h);
-        applyStyles(this._bridges.h.line, STYLES.bridge.line);
-        applyStyles(this._bridges.h.pill, STYLES.bridge.pill);
-        applyStyles(this._bridges.h.label, STYLES.bridge.label);
-        this._bridges.h.anchor1 = this._anchors.h1;
-        this._bridges.h.anchor2 = this._anchors.h2;
-
-        this._anchors.w1 = new Anchor("anchor-w1");
-        applyStyles(this._anchors.w1, STYLES.anchor);
-        this.gui.addControl(this._anchors.w1);
-        this._anchors.w1.linkWithMesh(this._anchorNodes.l);
-        this._anchors.w1.linkOffsetY = STYLES.offset;
-
-        this._anchors.w2 = new Anchor("anchor-h2");
-        applyStyles(this._anchors.w2, STYLES.anchor);
-        this.gui.addControl(this._anchors.w2);
-        this._anchors.w2.linkWithMesh(this._anchorNodes.r);
-        this._anchors.w2.linkOffsetY = STYLES.offset;
-
-        this._bridges.w = new Bridge("bridge-w");
-        this.gui.addControl(this._bridges.w);
-        applyStyles(this._bridges.w.line, STYLES.bridge.line);
-        applyStyles(this._bridges.w.pill, STYLES.bridge.pill);
-        applyStyles(this._bridges.w.label, STYLES.bridge.label);
-        this._bridges.w.anchor1 = this._anchors.w1;
-        this._bridges.w.anchor2 = this._anchors.w2;
-    }
-
-    annotateMesh(mesh: AbstractMesh) {
-        const bbox = mesh.getBoundingInfo().boundingBox;
-        this._anchorNodes.l.position = new Vector3(bbox.minimumWorld.x, bbox.minimumWorld.y, bbox.centerWorld.z);
-        this._anchorNodes.r.position = new Vector3(bbox.maximumWorld.x, bbox.minimumWorld.y, bbox.centerWorld.z);
-        this._anchorNodes.t.position = new Vector3(bbox.centerWorld.x, bbox.maximumWorld.y, bbox.centerWorld.z);
-        this._anchorNodes.b.position = new Vector3(bbox.centerWorld.x, bbox.minimumWorld.y, bbox.centerWorld.z);
-
-        this._bridges.h.label.text = (bbox.extendSizeWorld.y * 2).toFixed(2);
-        this._bridges.w.label.text = (bbox.extendSizeWorld.x * 2).toFixed(2);
-        Object.entries(this._anchors).forEach(([n, e]) => e.isVisible = true);
-        Object.entries(this._bridges).forEach(([n, e]) => e.isVisible = true);
-    }
-
-    clearAnnotations() {
-        Object.entries(this._anchors).forEach(([n, e]) => e.isVisible = false);
-        Object.entries(this._bridges).forEach(([n, e]) => e.isVisible = false);
+        this._anngizmo = new MyAnnotationGizmo(this.scene, this.gui);
     }
 
     _gridMesh!: Mesh;
@@ -269,12 +243,12 @@ export class MyScene extends LitElement {
         if (this._picked) this.unpick();
         this._picked = <Mesh>pickinfo.pickedMesh!;
         console.debug("picked", this._picked.name, pickinfo.pickedPoint);
-        this.annotateMesh(this._picked);
+        this._anngizmo.attachedMesh = this._picked;
     }
 
     unpick() {
         if (this._picked) this._picked.renderOutline = false;
         this._picked = null;
-        this.clearAnnotations();
+        this._anngizmo.attachedMesh = null;
     }
 } 

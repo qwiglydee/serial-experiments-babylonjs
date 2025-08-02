@@ -1,15 +1,22 @@
 import { ICanvasRenderingContext } from "@babylonjs/core/Engines/ICanvas";
 import { Color3, Vector3 as V3 } from "@babylonjs/core/Maths/math";
+import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { Scene } from "@babylonjs/core/scene";
 import { Nullable } from "@babylonjs/core/types";
+import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
 import { Container } from "@babylonjs/gui/2D/controls/container";
 import { Control } from "@babylonjs/gui/2D/controls/control";
 import { Line } from "@babylonjs/gui/2D/controls/line";
 import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock";
 import { Measure } from "@babylonjs/gui/2D/measure";
+import { assertNonNull } from "./utils/asserts";
+import { Observer } from "@babylonjs/core/Misc/observable";
+import { applyStyles } from "./utils/styles";
 
 
-export class Anchor extends Control {
+export class Callout extends Control {
     override isFocusInvisible = true;
     override isHitTestVisible = false;
     override isPointerBlocker = false;
@@ -106,7 +113,7 @@ export class Bridge extends Container {
     override isPointerBlocker = false;
 
     line: Line;
-    pill: Rectangle;
+    tag: Rectangle;
     label: TextBlock;
     
     constructor(name: string) {
@@ -117,26 +124,28 @@ export class Bridge extends Container {
         this.line = new Line();
         this.addControl(this.line);
 
-        this.pill = new Rectangle();
-        this.pill.adaptWidthToChildren = true;
-        this.pill.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        this.pill.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        this.addControl(this.pill);
+        this.tag = new Rectangle();
+        this.tag.adaptWidthToChildren = true;
+        this.tag.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        this.tag.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        this.addControl(this.tag);
 
         this.label = new TextBlock();
         this.label.resizeToFit = true;
         this.label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
         this.label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-        this.pill.addControl(this.label);
+        this.tag.addControl(this.label);
     }
 
-    _anc1?: Anchor;
-    _anc2?: Anchor;
-    set anchor1(anc: Anchor) {
+    _anc1?: Callout;
+    _anc2?: Callout;
+    get anchor1(): Callout | undefined { return this._anc1; }
+    set anchor1(anc: Callout) {
         this._anc1 = anc;
         this._anc1.onDirtyObservable.add(() => this.markAsDirty())
     }
-    set anchor2(anc: Anchor) {
+    get anchor2(): Callout | undefined { return this._anc2; }
+    set anchor2(anc: Callout) {
         this._anc2 = anc;
         this._anc2.onDirtyObservable.add(() => this.markAsDirty())
     }
@@ -150,9 +159,73 @@ export class Bridge extends Container {
 
         const midX = (a1.centerX + a2.centerX) / 2;
         const midY = (a1.centerY + a2.centerY) / 2;
-        this.pill.leftInPixels = midX - this.pill.widthInPixels / 2;
-        this.pill.topInPixels = midY - this.pill.heightInPixels / 2;
+        this.tag.leftInPixels = midX - this.tag.widthInPixels / 2;
+        this.tag.topInPixels = midY - this.tag.heightInPixels / 2;
 
         return super._layout(parentMeasure, context);
     }
+}
+
+
+export abstract class AnnotationGizmoBase {
+    scene: Scene;
+    gui: AdvancedDynamicTexture;
+
+    _attachedMesh: Nullable<AbstractMesh> = null;
+
+    anchors: {[key: string]: TransformNode} = {};
+    callouts: {[key: string]: Callout} = {};
+    bridges: {[key: string]: Bridge} = {};
+
+    constructor(scene: Scene, gui: AdvancedDynamicTexture) {
+        this.scene = scene;
+        this.gui = gui;
+    }
+
+    _initStyles(styles: { callout: any, bridge: any}) {
+        for(let [_, c] of Object.entries(this.callouts)) applyStyles(c, styles.callout);
+        for(let [_, c] of Object.entries(this.bridges)) applyStyles(c, styles.bridge);
+    }
+
+    _addControls() {
+        for(let [_, c] of Object.entries(this.callouts)) this.gui.addControl(c);
+        for(let [_, c] of Object.entries(this.bridges)) this.gui.addControl(c);
+    }
+
+    get attachedMesh(): Nullable<AbstractMesh> {
+        return this._attachedMesh;
+    }
+
+    set attachedMesh(mesh: Nullable<AbstractMesh>) {
+        if (mesh === this._attachedMesh) return;
+        if (this._attachedMesh !== null &&  mesh !== null) this._detach();
+        
+        this._attachedMesh = mesh;
+        if (mesh) this._attach();
+        else this._detach();
+    }
+
+    _observer?: Observer<any>;
+    _attach() {
+        assertNonNull(this._attachedMesh);
+        for(let [_, n] of Object.entries(this.anchors)) { n.parent = this._attachedMesh; }
+        this._observer = this._attachedMesh.onAfterWorldMatrixUpdateObservable.add(() => this._update());
+        this._update();
+        for(let [_, b] of Object.entries(this.bridges)) { 
+            b.isVisible = true; 
+            b.anchor1!.isVisible = true;
+            b.anchor2!.isVisible = true;
+        }
+    }
+
+    _detach() {
+        for(let [_, b] of Object.entries(this.bridges)) { 
+            b.isVisible = false; 
+            b.anchor1!.isVisible = false;
+            b.anchor2!.isVisible = false;
+        }
+        if (this._observer) this._observer.remove();
+    }
+
+    abstract _update(): void;
 }
