@@ -17,6 +17,9 @@ import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 
 import "@babylonjs/core/Rendering/outlineRenderer";
 import { Nullable } from "@babylonjs/core/types";
+import { PointerDragBehavior } from "@babylonjs/core/Behaviors/Meshes/pointerDragBehavior";
+import { Observer } from "@babylonjs/core/Misc/observable";
+
 
 @customElement("my-scene")
 export class MyScene extends LitElement {
@@ -34,7 +37,13 @@ export class MyScene extends LitElement {
         }
     `
 
-    @query("canvas") canvas!: HTMLCanvasElement;
+    @query("canvas")
+    canvas!: HTMLCanvasElement;
+
+    engine!: Engine;
+    scene!: Scene;
+    utils!: UtilityLayerRenderer;
+    dragging!: PointerDragBehavior;
 
     override render() {
         return html`<canvas></canvas>`;
@@ -58,10 +67,6 @@ export class MyScene extends LitElement {
         this.scene.onReadyObservable.add(() => bubbleEvent(this, 'scene-ready', this.scene));
         if (this.scene.isReady()) this.scene.onReadyObservable.notifyObservers(this.scene); // may already be ready
     }
-
-    engine!: Engine;
-    scene!: Scene;
-    utils!: UtilityLayerRenderer;
 
     initScene() {
         this.engine = new Engine(this.canvas, true);
@@ -92,10 +97,15 @@ export class MyScene extends LitElement {
                 this._picked.computeWorldMatrix();
             }
         })
+
     }
 
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
+
+        this.dragging = new PointerDragBehavior();
+        this.dragging.dragDeltaRatio = 0.2;
+
         this.createGrid(this.utils);
         new AxesViewer(this.utils.utilityLayerScene);
     }
@@ -158,10 +168,12 @@ export class MyScene extends LitElement {
         this._picked.renderOutline = true;
         this._picked.outlineColor = Color3.White();
         this._picked.outlineWidth = 0.05;
+        this.dragging.attach(this._picked);
     }
 
     unpick() {
         if (this._picked) this._picked.renderOutline = false;
         this._picked = null;
+        this.dragging.detach();
     }
 } 
