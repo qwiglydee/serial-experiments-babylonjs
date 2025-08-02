@@ -88,10 +88,15 @@ class MyAnnotationGizmo extends AnnotationGizmoBase {
         const bbox = this._attachedMesh.getBoundingInfo().boundingBox;
 
         // NB: local coords
-        this.anchors.tc.position = new Vector3(bbox.center.x, bbox.maximum.y, bbox.center.z);
-        this.anchors.bc.position = new Vector3(bbox.center.x, bbox.minimum.y, bbox.center.z);
-        // NB: world, unrotated
-        this.bridges.h.label.text = bbox.extendSizeWorld.y.toFixed(2);
+        const top = new Vector3(bbox.center.x, bbox.maximum.y, bbox.center.z);
+        const bot = new Vector3(bbox.center.x, bbox.minimum.y, bbox.center.z)
+        this.anchors.tc.position.copyFrom(top);
+        this.anchors.bc.position.copyFrom(bot);
+
+        // NB: transformed distance
+        const height = top.subtract(bot);
+        height.multiplyInPlace(this._attachedMesh.scaling);
+        this.bridges.h.label.text = height.length().toFixed(2);
     }
 }
 
