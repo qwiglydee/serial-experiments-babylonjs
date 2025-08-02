@@ -17,11 +17,11 @@ import { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 
 import "@babylonjs/core/Rendering/outlineRenderer";
 import { Nullable } from "@babylonjs/core/types";
+import { PointerDragBehavior } from "@babylonjs/core/Behaviors/Meshes/pointerDragBehavior";
+
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
 import { Callout, Bridge, AnnotationGizmoBase } from "./annotations";
 import { assertNonNull } from "./utils/asserts";
-import { Observer } from "@babylonjs/core/Misc/observable";
-import { applyStyles } from "./utils/styles";
 
 const STYLES = {
     callout: {
@@ -114,11 +114,13 @@ export class MyScene extends LitElement {
     `
 
     @query("canvas")
+   
     canvas!: HTMLCanvasElement;
 
     engine!: Engine;
     scene!: Scene;
     utils!: UtilityLayerRenderer;
+    dragging!: PointerDragBehavior;
     gui!: AdvancedDynamicTexture;
     
     override render() {
@@ -174,10 +176,15 @@ export class MyScene extends LitElement {
                 this._picked.computeWorldMatrix();
             }
         })
+
     }
 
     initUtils() {
         this.utils = UtilityLayerRenderer.DefaultUtilityLayer;
+
+        this.dragging = new PointerDragBehavior();
+        this.dragging.dragDeltaRatio = 0.2;
+
         this.createGrid(this.utils);
         new AxesViewer(this.utils.utilityLayerScene);
     }
@@ -244,11 +251,13 @@ export class MyScene extends LitElement {
         this._picked = <Mesh>pickinfo.pickedMesh!;
         console.debug("picked", this._picked.name, pickinfo.pickedPoint);
         this._anngizmo.attachedMesh = this._picked;
+        this.dragging.attach(this._picked);
     }
 
     unpick() {
         if (this._picked) this._picked.renderOutline = false;
         this._picked = null;
+        this.dragging.detach();
         this._anngizmo.attachedMesh = null;
     }
 } 
