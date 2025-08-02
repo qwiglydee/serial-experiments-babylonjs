@@ -7,7 +7,7 @@ import "@babylonjs/core/Helpers/sceneHelpers";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras";
 import { AbstractMesh, Mesh, MeshBuilder, TransformNode } from "@babylonjs/core/Meshes";
 import { UtilityLayerRenderer } from "@babylonjs/core/Rendering/utilityLayerRenderer";
-import { Color3, Vector3 } from "@babylonjs/core/Maths";
+import { Color3, Vector2, Vector3 } from "@babylonjs/core/Maths";
 import { BackgroundMaterial } from "@babylonjs/core/Materials";
 import { AxesViewer } from "@babylonjs/core/Debug";
 
@@ -22,6 +22,7 @@ import { PointerDragBehavior } from "@babylonjs/core/Behaviors/Meshes/pointerDra
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
 import { Callout, Bridge, AnnotationGizmoBase } from "./annotations";
 import { assertNonNull } from "./utils/asserts";
+import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 
 const STYLES = {
     callout: {
@@ -50,7 +51,7 @@ const STYLES = {
             paddingRightInPixels: 8,
         }
     },
-    offset: 128
+    offset: new Vector2(128, 0)
 }
 
 class MyAnnotationGizmo extends AnnotationGizmoBase {
@@ -59,48 +60,37 @@ class MyAnnotationGizmo extends AnnotationGizmoBase {
         super(scene, gui);
 
         this.anchors = {
-            tc: new TransformNode("anchor-tc", this.scene),
-            bc: new TransformNode("anchor-bc", this.scene),
+            t: new TransformNode("anchor-t", this.scene),
+            b: new TransformNode("anchor-b", this.scene),
         }
 
         this.callouts = {
-            t: new Callout("callout-t"),
-            b: new Callout("callout-b"),
+            t: new Callout("callout-t", STYLES.offset),
+            b: new Callout("callout-b", STYLES.offset),
         };
 
         this.bridges = {
-            h: new Bridge("bridge-h")
+            h: new Bridge("bridge-h", this.callouts.t, this.callouts.b)
         }
 
         this._initStyles(STYLES);
         this._addControls();
-
-        this.bridges.h.anchor1 = this.callouts.t;
-        this.bridges.h.anchor2 = this.callouts.b;
-        this.callouts.t.linkWithMesh(this.anchors.tc);
-        this.callouts.b.linkWithMesh(this.anchors.bc);
-        this.callouts.t.linkOffsetX = STYLES.offset;
-        this.callouts.b.linkOffsetX = STYLES.offset;
+        this._linkAnchors();
     }
 
-    _update() {
-        assertNonNull(this._attachedMesh);
-        const bbox = this._attachedMesh.getBoundingInfo().boundingBox;
+    _updateBox(bbox: BoundingBox) {
+        this.anchors.t.position = new Vector3(bbox.center.x, bbox.maximum.y, bbox.center.z);
+        this.anchors.b.position = new Vector3(bbox.center.x, bbox.minimum.y, bbox.center.z);
+    }
 
-        // NB: local coords
-        const top = new Vector3(bbox.center.x, bbox.maximum.y, bbox.center.z);
-        const bot = new Vector3(bbox.center.x, bbox.minimum.y, bbox.center.z)
-        this.anchors.tc.position.copyFrom(top);
-        this.anchors.bc.position.copyFrom(bot);
+    _updateLabels(bbox: BoundingBox) {
+        let scaling = Vector3.Zero();
+        bbox.getWorldMatrix().decompose(scaling);
+        let dim = bbox.extendSize.multiply(scaling);
 
-        // NB: transformed distance
-        const height = top.subtract(bot);
-        height.multiplyInPlace(this._attachedMesh.scaling);
-        this.bridges.h.label.text = height.length().toFixed(2);
+        this.bridges.h.label.text = dim.y.toFixed(2);
     }
 }
-
-
 
 @customElement("my-scene")
 export class MyScene extends LitElement {

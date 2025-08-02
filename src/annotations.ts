@@ -1,7 +1,9 @@
+import { BoundingBox } from "@babylonjs/core/Culling/boundingBox";
 import { ICanvasRenderingContext } from "@babylonjs/core/Engines/ICanvas";
-import { Color3, Vector3 as V3 } from "@babylonjs/core/Maths/math";
+import { Color3, Vector2 as V2, Vector3 as V3 } from "@babylonjs/core/Maths/math";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { Observer } from "@babylonjs/core/Misc/observable";
 import { Scene } from "@babylonjs/core/scene";
 import { Nullable } from "@babylonjs/core/types";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
@@ -11,9 +13,9 @@ import { Line } from "@babylonjs/gui/2D/controls/line";
 import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle";
 import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock";
 import { Measure } from "@babylonjs/gui/2D/measure";
-import { assertNonNull } from "./utils/asserts";
-import { Observer } from "@babylonjs/core/Misc/observable";
+
 import { applyStyles } from "./utils/styles";
+import { assertNonNull } from "./utils/asserts";
 
 
 export class Callout extends Control {
@@ -23,11 +25,15 @@ export class Callout extends Control {
     override _clipContent = false;
     lineWidth: number = 1;
     lineDash: Array<number> = [5, 5];
+    alpha0:number = 0.0;
+    alpha1:number = 1.0;
 
-    constructor(name: string) {
+    constructor(name: string, offset: V2) {
         super(name);
         this.isEnabled = false;
         this.isVisible = false;
+        this.linkOffsetX = offset.x;
+        this.linkOffsetY = offset.y;
     }
     
     protected override _applyStates(context: ICanvasRenderingContext): void {
@@ -43,16 +49,15 @@ export class Callout extends Control {
         super._moveToProjectedPosition(position);
     }
 
-
     _getGradient(context: ICanvasRenderingContext): CanvasGradient  {
         const gradient = context.createLinearGradient(
+            this.centerX - this.linkOffsetXInPixels, this.centerY - this.linkOffsetYInPixels,
             this.centerX, this.centerY,
-            this.centerX - this.linkOffsetXInPixels, this.centerY - this.linkOffsetYInPixels
         )
         const color = Color3.FromHexString(this.color);
         const colorstr = `${color.r * 255},${color.g * 255},${color.b * 255}`;
-        gradient.addColorStop(0, `rgba(${colorstr}, 1)`);
-        gradient.addColorStop(1, `rgba(${colorstr}, 0)`);
+        gradient.addColorStop(0, `rgba(${colorstr}, ${this.alpha0})`);
+        gradient.addColorStop(1, `rgba(${colorstr}, ${this.alpha1})`);
         return gradient;
     }
 
@@ -73,8 +78,8 @@ export class Callout extends Control {
         this._applyStates(context);
 
         context.beginPath();
-        context.moveTo(this.centerX, this.centerY);
-        context.lineTo(this.centerX - this.linkOffsetXInPixels, this.centerY - this.linkOffsetYInPixels);
+        context.moveTo(this.centerX - this.linkOffsetXInPixels, this.centerY - this.linkOffsetYInPixels);
+        context.lineTo(this.centerX, this.centerY);
         context.strokeStyle = this._getGradient(context);
         context.stroke();
 
@@ -116,7 +121,7 @@ export class Bridge extends Container {
     tag: Rectangle;
     label: TextBlock;
     
-    constructor(name: string) {
+    constructor(name: string, anchor1: Control, anchor2: Control, label?: string) {
         super(name);
         this.isEnabled = false;
         this.isVisible = false;
@@ -134,18 +139,22 @@ export class Bridge extends Container {
         this.label.resizeToFit = true;
         this.label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
         this.label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        this.label.text = label ?? "";
         this.tag.addControl(this.label);
+
+        this.anchor1 = anchor1;
+        this.anchor2 = anchor2;
     }
 
-    _anc1?: Callout;
-    _anc2?: Callout;
-    get anchor1(): Callout | undefined { return this._anc1; }
-    set anchor1(anc: Callout) {
+    _anc1?: Control;
+    _anc2?: Control;
+    get anchor1(): Control | undefined { return this._anc1; }
+    set anchor1(anc: Control) {
         this._anc1 = anc;
         this._anc1.onDirtyObservable.add(() => this.markAsDirty())
     }
-    get anchor2(): Callout | undefined { return this._anc2; }
-    set anchor2(anc: Callout) {
+    get anchor2(): Control | undefined { return this._anc2; }
+    set anchor2(anc: Control) {
         this._anc2 = anc;
         this._anc2.onDirtyObservable.add(() => this.markAsDirty())
     }
@@ -169,7 +178,7 @@ export class Bridge extends Container {
 
 export abstract class AnnotationGizmoBase {
     scene: Scene;
-    gui: AdvancedDynamicTexture;
+    host: AdvancedDynamicTexture;
 
     _attachedMesh: Nullable<AbstractMesh> = null;
 
@@ -177,9 +186,9 @@ export abstract class AnnotationGizmoBase {
     callouts: {[key: string]: Callout} = {};
     bridges: {[key: string]: Bridge} = {};
 
-    constructor(scene: Scene, gui: AdvancedDynamicTexture) {
+    constructor(scene: Scene, host: AdvancedDynamicTexture) {
         this.scene = scene;
-        this.gui = gui;
+        this.host = host;
     }
 
     _initStyles(styles: { callout: any, bridge: any}) {
@@ -188,8 +197,28 @@ export abstract class AnnotationGizmoBase {
     }
 
     _addControls() {
-        for(let [_, c] of Object.entries(this.callouts)) this.gui.addControl(c);
-        for(let [_, c] of Object.entries(this.bridges)) this.gui.addControl(c);
+        for(let [_, c] of Object.entries(this.callouts)) this.host.addControl(c);
+        for(let [_, c] of Object.entries(this.bridges)) this.host.addControl(c);
+    }
+
+    _linkAnchors() {
+        for(let k in this.anchors) {
+            assertNonNull(this.callouts.hasOwnProperty(k));
+            this.callouts[k].linkWithMesh(this.anchors[k]);
+        }
+    }
+
+    _visible: boolean = false;
+    get isVisible(): boolean {
+        return this._visible;
+    }
+
+    set isVisible(enabled: boolean) {
+        for(let [_, b] of Object.entries(this.bridges)) { 
+            b.isVisible = enabled; 
+            b.anchor1!.isVisible = enabled;
+            b.anchor2!.isVisible = enabled;
+        }
     }
 
     get attachedMesh(): Nullable<AbstractMesh> {
@@ -205,27 +234,33 @@ export abstract class AnnotationGizmoBase {
         else this._detach();
     }
 
-    _observer?: Observer<any>;
+    measuredMesh: Nullable<AbstractMesh> = null;
+
+    _observerM?: Observer<any>;
+    _observerV?: Observer<any>;
     _attach() {
         assertNonNull(this._attachedMesh);
         for(let [_, n] of Object.entries(this.anchors)) { n.parent = this._attachedMesh; }
-        this._observer = this._attachedMesh.onAfterWorldMatrixUpdateObservable.add(() => this._update());
+        this._observerM = this._attachedMesh.onAfterWorldMatrixUpdateObservable.add(() => this._update());
+        this._observerV = this._attachedMesh.onEnabledStateChangedObservable.add((enabled) => this.isVisible = enabled);
         this._update();
-        for(let [_, b] of Object.entries(this.bridges)) { 
-            b.isVisible = true; 
-            b.anchor1!.isVisible = true;
-            b.anchor2!.isVisible = true;
-        }
+        this.isVisible = true;
     }
 
     _detach() {
-        for(let [_, b] of Object.entries(this.bridges)) { 
-            b.isVisible = false; 
-            b.anchor1!.isVisible = false;
-            b.anchor2!.isVisible = false;
-        }
-        if (this._observer) this._observer.remove();
+        this.isVisible = true;
+        if (this._observerM) this._observerM.remove();
+        if (this._observerV) this._observerV.remove();
     }
 
-    abstract _update(): void;
+    _update() {
+        assertNonNull(this._attachedMesh);
+        let bbox = this._attachedMesh.getBoundingInfo().boundingBox;
+        this._updateBox(bbox);
+        if (this.measuredMesh) bbox = this.measuredMesh.getBoundingInfo().boundingBox
+        this._updateLabels(bbox);
+    }
+
+    abstract _updateBox(bbox: BoundingBox): void;
+    abstract _updateLabels(bbox: BoundingBox): void;
 }
